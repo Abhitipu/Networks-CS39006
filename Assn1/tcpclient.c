@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <fcntl.h>
 
 int main(int argc, char* argv[]) {
     if (argc < 2) {
@@ -17,28 +18,23 @@ int main(int argc, char* argv[]) {
         exit(-1);
     }
 
-    char* infile_name = argv[1];
-    FILE* infile_ptr = fopen(infile_name, "r");
+    // O_RDONLY flag says that its a read only file
+    int input_fd = open(argv[1], O_RDONLY);
     
-    if(infile_ptr == NULL) {
+    if(input_fd < 0) {
         printf("File not found\n");
         exit(-1);
     }
-    
 
-	int	sockfd ;
-    // So this is serv_addr ... but why : because you will connect to it lmao
-	struct sockaddr_in	serv_addr;
-
-	int i;
+    // Reading from input file
 	char buf[100];
+    memset(buf, '\0', sizeof(buf));
+    int read_len = read(input_fd, buf, 100);
 
-	for(i=0; i < 100; i++) 
-        buf[i] = '\0';
 
-    read();
-
-	/* Opening a socket is exactly similar to the server process */
+    // Creating the socket
+	int	sockfd ;
+	struct sockaddr_in	serv_addr;
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		perror("Unable to create socket\n");
 		exit(0);
@@ -96,9 +92,6 @@ int main(int argc, char* argv[]) {
 		
 	close(sockfd);
     // Now we will close it
-
-    fclose(infile_ptr);
-    // close the input file
 
 	return 0;
 
