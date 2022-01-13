@@ -20,10 +20,19 @@ process and a client process.
 
 /* THE SERVER PROCESS */
 
+// int socket(int domain, int type, int protocol)
+// domain is set to AF_INET
+// type : SOCK_STREAM or SOCK_DGRAM
+// set protocol to 0 to interpret the correct transfer protocol using type
+// check getprotobyname() man page
+// errno : global variable : set when you call perror
+// 
 int main() {
-
+    // fd : file descriptor in unix
+    //
 	int	sockfd, newsockfd ; /* Socket descriptors */
 	int	clilen;
+    // We have cli_addr
 	struct sockaddr_in	cli_addr, serv_addr;
 
 	int i;
@@ -35,6 +44,7 @@ int main() {
 	   is SOCK_STREAM. The third parameter is set to 0 for user
 	   applications.
 	*/
+
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		perror("Cannot create socket\n");
 		exit(0);
@@ -49,15 +59,16 @@ int main() {
 	   specifies the port number of the server.
 	*/
 
+    // All this is server info.. it is alright
 	serv_addr.sin_family		= AF_INET;
-	serv_addr.sin_addr.s_addr	= INADDR_ANY;
-	serv_addr.sin_port		= htons(20000);
+	serv_addr.sin_addr.s_addr	= INADDR_ANY;   // So it would accept any address?
+	serv_addr.sin_port		= htons(20000);     // Network Byte Order or big endian system
 
 	/* With the information provided in serv_addr, we associate the server
 	   with its port using the bind() system call. 
 	*/
-	if (bind(sockfd, (struct sockaddr *) &serv_addr,
-					sizeof(serv_addr)) < 0) {
+	if (bind(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr)) < 0) {
+        // There is a global variable called errno which gets set in case of an error
 		perror("Unable to bind local address\n");
 		exit(0);
 	}
@@ -86,8 +97,8 @@ int main() {
 		   system call is stored in "newsockfd".
 		*/
 		clilen = sizeof(cli_addr);
-		newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr,
-					&clilen) ;
+        // Alright... so the address of clilen is sent? But why?
+		newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
 
 		if (newsockfd < 0) {
 			perror("Accept error\n");
@@ -112,10 +123,12 @@ int main() {
 		  is received. Look up the return value of recv() to see how you
 		  can do this.
 		*/ 
+
+        // So we will need to play with the return value of recv?
 		recv(newsockfd, buf, 100, 0);
 		printf("%s\n", buf);
 
-		close(newsockfd);
+		close(newsockfd);           // It is always a good idea to close the newsockfd
 	}
 	return 0;
 }
