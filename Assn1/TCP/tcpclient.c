@@ -79,9 +79,9 @@ int main(int argc, char* argv[]) {
     printf("%s\n", buf);
 
     int nWords, nChars, nSentences;
-    int word_status = read(sockfd, &nWords, sizeof(nWords));
-    int char_status = read(sockfd, &nChars, sizeof(nChars));
-    int sent_status = read(sockfd, &nSentences, sizeof(nSentences));
+    int word_status = recv(sockfd, &nWords, sizeof(nWords), 0);
+    int char_status = recv(sockfd, &nChars, sizeof(nChars), 0);
+    int sent_status = recv(sockfd, &nSentences, sizeof(nSentences), 0);
 
     printf("Words: %d\n", nWords);
     printf("Characters: %d\n", nChars);

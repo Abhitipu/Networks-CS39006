@@ -94,9 +94,9 @@ int main() {
         strcpy(buf, "Parsing complete! Returning results\n");
         send(newsockfd, buf, 100, 0);
 
-        write(newsockfd, &nWords, sizeof(nWords));
-        write(newsockfd, &nChars, sizeof(nChars));
-        write(newsockfd, &nSentences, sizeof(nSentences));
+        send(newsockfd, &nWords, sizeof(nWords), 0);
+        send(newsockfd, &nChars, sizeof(nChars), 0);
+        send(newsockfd, &nSentences, sizeof(nSentences), 0);
 
 		close(newsockfd);           // It is always a good idea to close the newsockfd
 	}
