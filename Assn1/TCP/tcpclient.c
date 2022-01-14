@@ -56,11 +56,20 @@ int main(int argc, char* argv[]) {
     
     while(read(input_fd, buf, 100) > 0) {
         // send the buffer
-	    send(sockfd, buf, strlen(buf) + 1, 0);
+	    int check = send(sockfd, buf, 100, 0);
+        printf("%d\n", check);
+
+        if(check == -1) {
+            perror("Send failed!\n");
+            exit(-1);
+        }
+
         // printf("%d\n", ++cnt);
         printf("%s", buf);
         memset(buf, '\0', sizeof(buf));
     }
+
+    printf("Done\n");
     
 	recv(sockfd, buf, 100, 0);
     printf("%s\n", buf);

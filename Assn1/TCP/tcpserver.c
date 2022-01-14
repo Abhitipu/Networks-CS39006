@@ -15,7 +15,6 @@ int main() {
     // Here we need to store the client information also
 	struct sockaddr_in	cli_addr, serv_addr;
 
-	char buf[101];		
 
     // Creating the socket
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -38,6 +37,7 @@ int main() {
     // Todo: maybe change to 1?
 	listen(sockfd, 5);  //  5 concurrent connections
 
+	char buf[101];		
 	while (1) {
 		clilen = sizeof(cli_addr);
 		newsockfd = accept(sockfd, (struct sockaddr *) &cli_addr, &clilen);
@@ -56,7 +56,8 @@ int main() {
         int nWords, nChars, nSentences;
         nWords = nChars = nSentences = 0;
 
-        while(1) {
+        int toEnd = 0;
+        while(toEnd == 0) {
             memset(buf, '\0', sizeof(buf));
 
 		    int check = recv(newsockfd, buf, 100, 0);
@@ -70,16 +71,10 @@ int main() {
             if(check == 0)
                 break;
 
-		    printf("%s", buf);
+		    // printf("%s", buf);
             len = strlen(buf);
 
-            // Todo: fix this
-            if(len == 0) {
-                printf("\nNooooooo\n");
-                continue;
-            }
-
-            // printf("\n%d\n", len);
+            printf("\n%d\n", len);
             
             for(int i = 0; i < len && buf[i] != '\0'; i++) {
                 if(buf[i] == ' ')
@@ -88,6 +83,15 @@ int main() {
                     nSentences++;
                 nChars++;
             }
+
+            if(len < 3) {
+                toEnd = 1;
+            } else {
+                if(buf[len - 3] == '.' && buf[len - 2] == '.')
+                    toEnd = 1;
+            }
+
+            printf("Iterating\n");
         }
 
         memset(buf, '\0', sizeof(buf));
@@ -95,7 +99,7 @@ int main() {
 
         // Need to send these back!
 		strcpy(buf,"Ok done\n");
-        send(newsockfd, buf, strlen(buf) + 1, 0);
+        send(newsockfd, buf, 100, 0);
 
 		close(newsockfd);           // It is always a good idea to close the newsockfd
 	}
