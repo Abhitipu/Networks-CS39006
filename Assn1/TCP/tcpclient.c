@@ -57,7 +57,6 @@ int main(int argc, char* argv[]) {
     while(read(input_fd, buf, 100) > 0) {
         // send the buffer
 	    int check = send(sockfd, buf, 100, 0);
-        printf("%d\n", check);
 
         if(check == -1) {
             perror("Send failed!\n");
@@ -71,8 +70,22 @@ int main(int argc, char* argv[]) {
 
     printf("Done\n");
     
-	recv(sockfd, buf, 100, 0);
+	int parse_status = recv(sockfd, buf, 100, 0);
+    if(parse_status < 0) {
+        printf("Couldn't send file completely!\n");
+        exit(-1);
+    }
+    
     printf("%s\n", buf);
+
+    int nWords, nChars, nSentences;
+    int word_status = read(sockfd, &nWords, sizeof(nWords));
+    int char_status = read(sockfd, &nChars, sizeof(nChars));
+    int sent_status = read(sockfd, &nSentences, sizeof(nSentences));
+
+    printf("Words: %d\n", nWords);
+    printf("Characters: %d\n", nChars);
+    printf("Sentences: %d\n", nSentences);
 		
 	close(sockfd);
     // Now we will close it

@@ -71,11 +71,9 @@ int main() {
             if(check == 0)
                 break;
 
-		    // printf("%s", buf);
+		    printf("%s", buf);
             len = strlen(buf);
 
-            printf("\n%d\n", len);
-            
             for(int i = 0; i < len && buf[i] != '\0'; i++) {
                 if(buf[i] == ' ')
                     nWords++;
@@ -90,16 +88,15 @@ int main() {
                 if(buf[len - 3] == '.' && buf[len - 2] == '.')
                     toEnd = 1;
             }
-
-            printf("Iterating\n");
         }
 
         memset(buf, '\0', sizeof(buf));
-        printf("Yayyyyyy\n");
-
-        // Need to send these back!
-		strcpy(buf,"Ok done\n");
+        strcpy(buf, "Parsing complete! Returning results\n");
         send(newsockfd, buf, 100, 0);
+
+        write(newsockfd, &nWords, sizeof(nWords));
+        write(newsockfd, &nChars, sizeof(nChars));
+        write(newsockfd, &nSentences, sizeof(nSentences));
 
 		close(newsockfd);           // It is always a good idea to close the newsockfd
 	}
