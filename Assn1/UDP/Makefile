@@ -1,10 +1,10 @@
 a.out:
-	cc -o udpclient  udpclient.c
-	./udpclient input.txt
+	cc -o client udpclient.c
+	./client input.txt
 
-udpserver: 
-	cc -o udpserver udpserver.c
-	./udpserver
+server: 
+	cc -o server udpserver.c
+	./server
 
 clean:
-	rm -rf udpclient udpserver
+	rm -rf client server
