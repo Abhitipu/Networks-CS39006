@@ -19,9 +19,11 @@ int main() {
         exit(EXIT_FAILURE); 
     } 
       
+    // Reset variables
     memset(&servaddr, 0, sizeof(servaddr)); 
     memset(&cliaddr, 0, sizeof(cliaddr)); 
       
+    // Server specifications
     servaddr.sin_family    = AF_INET; 
     servaddr.sin_addr.s_addr = INADDR_ANY; 
     servaddr.sin_port = htons(8181); 
@@ -37,6 +39,7 @@ int main() {
     char buf[101]; 
     memset(buf, '\0', sizeof(buf));
 
+    // Receive message from a client
 	recvfrom(sockfd, (char *)buf, 100, 0, (struct sockaddr *) &cliaddr, &len);
     printf("%s", buf);
 
@@ -45,21 +48,27 @@ int main() {
     sendto(sockfd, buf, 100, 0, (struct sockaddr *) &cliaddr, len);
  
     len = sizeof(cliaddr);
+    // The mainloop
     while(1) {
         int cur_len;
         int nWords, nChars, nSentences;
         int lastWasLetter = 0;
         nWords = nChars = nSentences = 0;
 
+        // This is used for tracking
         int toEnd = 0;
         while(toEnd == 0) {
+            // Reset buffer everytime
             memset(buf, '\0', sizeof(buf));
+            // Receive a max of 100 characters at a time
 		    int check = recvfrom(sockfd, (char *)buf, 100, 0, (struct sockaddr *) &cliaddr, &len);
 
+            // Error checking
             if(check == -1) {
                 perror("Error in receiving\n");
                 exit(-1);
             }
+
             printf("%s", buf);
 
             // end of stream
@@ -68,25 +77,37 @@ int main() {
 
             cur_len = strlen(buf);
 
+            // Main program logic
             for(int i = 0; i < cur_len && buf[i] != '\0'; i++) {
                 if(buf[i] == ' ' || buf[i] == '.') {
+                    // Here we increase nChars to account for the last '\n'
+                    if(buf[i] == '.' && i > 0 && buf[i-1] == '.')
+                        nChars++, toEnd = 1;
+
+                    // If the last one was a letter, we have a new word
                     if(lastWasLetter)
                         nWords++;
 
                     lastWasLetter = 0;
                     nSentences += (buf[i] == '.');
                 }
-                else if(buf[i] != '\0') {
+                else {
+                    // Alphanumeric
                     if(buf[i] != '\n')
                         lastWasLetter = 1;
+                    else if(lastWasLetter)
+                        lastWasLetter = 0, nWords++;
 
-                    nChars++;
                 }
+                // Always increment nChars
+                nChars++;
             }
 
+            // In case we just receive the last .
             if(cur_len < 3) {
                 toEnd = 1;
             } else {
+                // All other cases
                 if(buf[cur_len - 3] == '.' && buf[cur_len - 2] == '.')
                     toEnd = 1;
             }
@@ -99,6 +120,7 @@ int main() {
         strcpy(buf, "Parsing complete! Returning results\n");
         sendto(sockfd, buf, 100, 0, (struct sockaddr *) &cliaddr, len);
 
+        // Returning the results
         sendto(sockfd, &nWords, sizeof(nWords), 0, (struct sockaddr *) &cliaddr, len);
         sendto(sockfd, &nChars, sizeof(nChars), 0, (struct sockaddr *) &cliaddr, len);
         sendto(sockfd, &nSentences, sizeof(nSentences), 0, (struct sockaddr *) &cliaddr, len);

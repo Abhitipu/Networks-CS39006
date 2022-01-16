@@ -39,7 +39,8 @@ int main(int argc, char* argv[]) {
     servaddr.sin_family = AF_INET; 
     inet_aton("127.0.0.1", &servaddr.sin_addr); 
     servaddr.sin_port = htons(8181); 
-      
+    
+    // Initial communication 
     int n;
     socklen_t len = sizeof(servaddr); 
     char buf[101] = "Hello from client!\n";
@@ -48,11 +49,12 @@ int main(int argc, char* argv[]) {
     recvfrom(sockfd, buf, 100, 0, (struct sockaddr *) &servaddr, &len);
     printf("%s\n", buf);
 
-           
+    // Reading from file using the read api 
     while(read(input_fd, buf, 100) > 0) {
         // send the buffer
 	    int check = sendto(sockfd, buf, 100, 0, (struct sockaddr *) &servaddr, len);
 
+        // Error checking
         if(check == -1) {
             perror("Send failed!\n");
             exit(-1);
@@ -65,7 +67,8 @@ int main(int argc, char* argv[]) {
 
     printf("Done\n");
     
-	int parse_status = recvfrom(sockfd, buf, 100, 0, (struct sockaddr *) &servaddr, &len);
+    // Error checking
+    int parse_status = recvfrom(sockfd, buf, 100, 0, (struct sockaddr *) &servaddr, &len);
     if(parse_status < 0) {
         printf("Couldn't send file completely!\n");
         exit(-1);
@@ -73,10 +76,16 @@ int main(int argc, char* argv[]) {
     
     printf("%s\n", buf);
 
+    // Getting back the results
     int nWords, nChars, nSentences;
     int word_status = recvfrom(sockfd, &nWords, sizeof(nWords), 0, (struct sockaddr *) &servaddr, &len);
     int char_status = recvfrom(sockfd, &nChars, sizeof(nChars), 0, (struct sockaddr *) &servaddr, &len);
     int sent_status = recvfrom(sockfd, &nSentences, sizeof(nSentences), 0, (struct sockaddr *) &servaddr, &len);
+
+    if(word_status < 0 || char_status < 0 || sent_status < 0) {
+        perror("Error in getting results");
+        exit(-1);
+    }
 
     printf("Words: %d\n", nWords);
     printf("Characters: %d\n", nChars);

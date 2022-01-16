@@ -1,9 +1,9 @@
 a.out:
-	cc -o client udpclient.c
+	cc -o client my_udpclient.c
 	./client input.txt
 
 server: 
-	cc -o server udpserver.c
+	cc -o server my_udpserver.c
 	./server
 
 clean:
