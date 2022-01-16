@@ -6,7 +6,7 @@
 
 ## [a] Using Makefile
 2. On the first one, run
- `make client`
+ `make server`
 
 3. On the second one, run
  `make`
