@@ -1,130 +1,130 @@
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-Hello Mister.
-How do you do.
-The last line.
-..
+1	Hello Mister.
+2	How do you do.
+3	Hello Mister.
+4	How do you do.
+5	Hello Mister.
+6	How do you do.
+7	Hello Mister.
+8	How do you do.
+9	Hello Mister.
+10	How do you do.
+11	Hello Mister.
+12	How do you do.
+13	Hello Mister.
+14	How do you do.
+15	Hello Mister.
+16	How do you do.
+17	Hello Mister.
+18	How do you do.
+19	Hello Mister.
+20	How do you do.
+21	Hello Mister.
+22	How do you do.
+23	Hello Mister.
+24	How do you do.
+25	Hello Mister.
+26	How do you do.
+27	Hello Mister.
+28	How do you do.
+29	Hello Mister.
+30	How do you do.
+31	Hello Mister.
+32	How do you do.
+33	Hello Mister.
+34	How do you do.
+35	Hello Mister.
+36	How do you do.
+37	Hello Mister.
+38	How do you do.
+39	Hello Mister.
+40	How do you do.
+41	Hello Mister.
+42	How do you do.
+43	Hello Mister.
+44	How do you do.
+45	Hello Mister.
+46	How do you do.
+47	Hello Mister.
+48	How do you do.
+49	Hello Mister.
+50	How do you do.
+51	Hello Mister.
+52	How do you do.
+53	Hello Mister.
+54	How do you do.
+55	Hello Mister.
+56	How do you do.
+57	Hello Mister.
+58	How do you do.
+59	Hello Mister.
+60	How do you do.
+61	Hello Mister.
+62	How do you do.
+63	Hello Mister.
+64	How do you do.
+65	Hello Mister.
+66	How do you do.
+67	Hello Mister.
+68	How do you do.
+69	Hello Mister.
+70	How do you do.
+71	Hello Mister.
+72	How do you do.
+73	Hello Mister.
+74	How do you do.
+75	Hello Mister.
+76	How do you do.
+77	Hello Mister.
+78	How do you do.
+79	Hello Mister.
+80	How do you do.
+81	Hello Mister.
+82	How do you do.
+83	Hello Mister.
+84	How do you do.
+85	Hello Mister.
+86	How do you do.
+87	Hello Mister.
+88	How do you do.
+89	Hello Mister.
+90	How do you do.
+91	Hello Mister.
+92	How do you do.
+93	Hello Mister.
+94	How do you do.
+95	Hello Mister.
+96	How do you do.
+97	Hello Mister.
+98	How do you do.
+99	Hello Mister.
+100	How do you do.
+101	Hello Mister.
+102	How do you do.
+103	Hello Mister.
+104	How do you do.
+105	Hello Mister.
+106	How do you do.
+107	Hello Mister.
+108	How do you do.
+109	Hello Mister.
+110	How do you do.
+111	Hello Mister.
+112	How do you do.
+113	Hello Mister.
+114	How do you do.
+115	Hello Mister.
+116	How do you do.
+117	Hello Mister.
+118	How do you do.
+119	Hello Mister.
+120	How do you do.
+121	Hello Mister.
+122	How do you do.
+123	Hello Mister.
+124	How do you do.
+125	Hello Mister.
+126	How do you do.
+127	Hello Mister.
+128	How do you do.
+129	The last line.
+130	..

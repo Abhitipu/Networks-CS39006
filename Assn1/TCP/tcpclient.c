@@ -1,11 +1,8 @@
-/*    THE CLIENT PROCESS */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 
-// these are the required imports
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -23,8 +20,10 @@ int main(int argc, char* argv[]) {
 	struct sockaddr_in	serv_addr;
 	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 		perror("Unable to create socket\n");
-		exit(0);
+		exit(-1);
 	}
+
+    memset(&serv_addr, 0, sizeof(serv_addr)); 
 
     // Opening the file
     // O_RDONLY flag says that its a read only file

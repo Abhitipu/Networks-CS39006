@@ -54,6 +54,7 @@ int main() {
         // So we will need to play with the return value of recv?
         int len;
         int nWords, nChars, nSentences;
+        int lastWasLetter = 0;
         nWords = nChars = nSentences = 0;
 
         int toEnd = 0;
@@ -75,11 +76,18 @@ int main() {
             len = strlen(buf);
 
             for(int i = 0; i < len && buf[i] != '\0'; i++) {
-                if(buf[i] == ' ')
-                    nWords++;
-                if(buf[i] == '\n')
-                    nSentences++;
-                nChars++;
+                if(buf[i] == ' ' || buf[i] == '.') {
+                    if(lastWasLetter)
+                        nWords++;
+
+                    lastWasLetter = 0;
+                    nSentences += (buf[i] == '.');
+                }
+                else {
+                    if(buf[i] != '\n')
+                        lastWasLetter = 1;
+                    nChars++;
+                }
             }
 
             if(len < 3) {
@@ -89,6 +97,8 @@ int main() {
                     toEnd = 1;
             }
         }
+
+        nSentences--;
 
         memset(buf, '\0', sizeof(buf));
         strcpy(buf, "Parsing complete! Returning results\n");
