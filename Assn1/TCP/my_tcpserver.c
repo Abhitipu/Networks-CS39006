@@ -1,3 +1,4 @@
+/** TCP SERVER **/
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -34,7 +35,6 @@ int main() {
 		exit(0);
 	}
 
-    // Todo: maybe change to 1?
 	listen(sockfd, 5);  //  5 concurrent connections
 
 	char buf[101];		
@@ -75,21 +75,32 @@ int main() {
 		    printf("%s", buf);
             len = strlen(buf);
 
+            // The main logic
             for(int i = 0; i < len && buf[i] != '\0'; i++) {
                 if(buf[i] == ' ' || buf[i] == '.') {
+                    // Accounting for the last '\n'
+                    if(buf[i] == '.' && i > 0 && buf[i-1] == '.')
+                        nChars++, toEnd = 1;
+
                     if(lastWasLetter)
                         nWords++;
 
                     lastWasLetter = 0;
+                    // counting '.' is enough for counting sentences
                     nSentences += (buf[i] == '.');
                 }
                 else {
+                    // Alphanumeric logic
                     if(buf[i] != '\n')
                         lastWasLetter = 1;
-                    nChars++;
+                    else if(lastWasLetter)
+                        lastWasLetter = 0, nWords++;
                 }
+                // Always incremented
+                nChars++;
             }
 
+            // Special case
             if(len < 3) {
                 toEnd = 1;
             } else {
@@ -98,12 +109,15 @@ int main() {
             }
         }
 
+        printf("Done\n");
+
         nSentences--;
 
         memset(buf, '\0', sizeof(buf));
         strcpy(buf, "Parsing complete! Returning results\n");
         send(newsockfd, buf, 100, 0);
 
+        // Finally sending the results
         send(newsockfd, &nWords, sizeof(nWords), 0);
         send(newsockfd, &nChars, sizeof(nChars), 0);
         send(newsockfd, &nSentences, sizeof(nSentences), 0);

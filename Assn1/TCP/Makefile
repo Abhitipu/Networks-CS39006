@@ -1,9 +1,9 @@
 a.out:
-	cc -o client tcpclient.c
-	./client input.txt
+	cc -o client my_tcpclient.c
+	./client rough.txt
 
 server: 
-	cc -o server tcpserver.c
+	cc -o server my_tcpserver.c
 	./server
 
 clean:

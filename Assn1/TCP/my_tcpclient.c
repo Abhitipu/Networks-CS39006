@@ -1,3 +1,4 @@
+/** TCP CLIENT **/
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -51,7 +52,6 @@ int main(int argc, char* argv[]) {
     // We will receive a notification when connected to server!
 	recv(sockfd, buf, 100, 0);
 	printf("%s\n", buf);
-    int cnt = 0;
     
     while(read(input_fd, buf, 100) > 0) {
         // send the buffer
@@ -62,8 +62,8 @@ int main(int argc, char* argv[]) {
             exit(-1);
         }
 
-        // printf("%d\n", ++cnt);
         printf("%s", buf);
+        // Reset buffer after every send operation
         memset(buf, '\0', sizeof(buf));
     }
 
@@ -77,10 +77,17 @@ int main(int argc, char* argv[]) {
     
     printf("%s\n", buf);
 
+    // Getting the results
     int nWords, nChars, nSentences;
     int word_status = recv(sockfd, &nWords, sizeof(nWords), 0);
     int char_status = recv(sockfd, &nChars, sizeof(nChars), 0);
     int sent_status = recv(sockfd, &nSentences, sizeof(nSentences), 0);
+
+    // Error checking
+    if(word_status < 0 || char_status < 0 || sent_status < 0) {
+        perror("Error in receiving results\n");
+        exit(-1);
+    }
 
     printf("Words: %d\n", nWords);
     printf("Characters: %d\n", nChars);
