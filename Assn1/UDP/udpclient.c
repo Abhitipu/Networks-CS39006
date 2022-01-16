@@ -10,7 +10,7 @@
 #include <netinet/in.h> 
 #include <fcntl.h>
   
-int main() { 
+int main(int argc, char* argv[]) { 
     if (argc < 2) {
         printf("Input file not specified!\n");
         exit(-1);
@@ -18,7 +18,7 @@ int main() {
 
     // Creating the socket
 	int	sockfd ;
-	struct sockaddr_in	serv_addr;
+	struct sockaddr_in	servaddr;
 	if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 		perror("Unable to create socket\n");
 		exit(-1);
@@ -37,21 +37,21 @@ int main() {
       
     // Server information.. we dont explicitly call connect() here
     servaddr.sin_family = AF_INET; 
-    inet_aton("127.0.0.1", &serv_addr.sin_addr); 
+    inet_aton("127.0.0.1", &servaddr.sin_addr); 
     servaddr.sin_port = htons(8181); 
       
     int n;
-    socklen_t len; 
+    socklen_t len = sizeof(servaddr); 
     char buf[101] = "Hello from client!\n";
-    sendto(sockfd, (const char *)buf, 100, 0, (const struct sockaddr *) &servaddr, sizeof(servaddr)); 
+    sendto(sockfd, (const char *)buf, 100, 0, (struct sockaddr *) &servaddr, len); 
 
-    recvfrom(sockfd, buf, 100, 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
+    recvfrom(sockfd, buf, 100, 0, (struct sockaddr *) &servaddr, &len);
     printf("%s\n", buf);
 
            
     while(read(input_fd, buf, 100) > 0) {
         // send the buffer
-	    int check = sendto(sockfd, buf, 100, 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
+	    int check = sendto(sockfd, buf, 100, 0, (struct sockaddr *) &servaddr, len);
 
         if(check == -1) {
             perror("Send failed!\n");
@@ -65,7 +65,7 @@ int main() {
 
     printf("Done\n");
     
-	int parse_status = recvfrom(sockfd, buf, 100, 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
+	int parse_status = recvfrom(sockfd, buf, 100, 0, (struct sockaddr *) &servaddr, &len);
     if(parse_status < 0) {
         printf("Couldn't send file completely!\n");
         exit(-1);
@@ -74,9 +74,9 @@ int main() {
     printf("%s\n", buf);
 
     int nWords, nChars, nSentences;
-    int word_status = recvfrom(sockfd, &nWords, sizeof(nWords), 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
-    int char_status = recvfrom(sockfd, &nChars, sizeof(nChars), 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
-    int sent_status = recvfrom(sockfd, &nSentences, sizeof(nSentences), 0, (const struct sockaddr *) &servaddr, sizeof(servaddr));
+    int word_status = recvfrom(sockfd, &nWords, sizeof(nWords), 0, (struct sockaddr *) &servaddr, &len);
+    int char_status = recvfrom(sockfd, &nChars, sizeof(nChars), 0, (struct sockaddr *) &servaddr, &len);
+    int sent_status = recvfrom(sockfd, &nSentences, sizeof(nSentences), 0, (struct sockaddr *) &servaddr, &len);
 
     printf("Words: %d\n", nWords);
     printf("Characters: %d\n", nChars);

@@ -33,7 +33,7 @@ int main() {
     } 
     
 
-    socklen_t len;
+    socklen_t len = sizeof(cliaddr);
     char buf[101]; 
     memset(buf, '\0', sizeof(buf));
 
@@ -42,7 +42,7 @@ int main() {
 
     memset(buf, '\0', sizeof(buf));
     strcpy(buf, "Hello from server!\n");
-    sendto(sockfd, buf, 100, 0, (struct sockaddr *) &cliaddr, &len);
+    sendto(sockfd, buf, 100, 0, (struct sockaddr *) &cliaddr, len);
  
     len = sizeof(cliaddr);
     while(1) {
@@ -54,21 +54,18 @@ int main() {
         int toEnd = 0;
         while(toEnd == 0) {
             memset(buf, '\0', sizeof(buf));
-
 		    int check = recvfrom(sockfd, (char *)buf, 100, 0, (struct sockaddr *) &cliaddr, &len);
 
             if(check == -1) {
                 perror("Error in receiving\n");
                 exit(-1);
             }
-            buf[check] = '\0';
-            printf("%s\n", buf);
+            printf("%s", buf);
 
             // end of stream
             if(check == 0)
                 break;
 
-		    printf("%s", buf);
             cur_len = strlen(buf);
 
             for(int i = 0; i < cur_len && buf[i] != '\0'; i++) {
@@ -94,16 +91,17 @@ int main() {
                     toEnd = 1;
             }
         }
+        printf("Done\n");
 
         nSentences--;
 
         memset(buf, '\0', sizeof(buf));
         strcpy(buf, "Parsing complete! Returning results\n");
-        sendto(sockfd, buf, 100, 0, (struct sockaddr *) &cliaddr, &len);
+        sendto(sockfd, buf, 100, 0, (struct sockaddr *) &cliaddr, len);
 
-        sendto(sockfd, &nWords, sizeof(nWords), 0, (struct sockaddr *) &cliaddr, &len);
-        sendto(sockfd, &nChars, sizeof(nChars), 0, (struct sockaddr *) &cliaddr, &len);
-        sendto(sockfd, &nSentences, sizeof(nSentences), 0, (struct sockaddr *) &cliaddr, &len);
+        sendto(sockfd, &nWords, sizeof(nWords), 0, (struct sockaddr *) &cliaddr, len);
+        sendto(sockfd, &nChars, sizeof(nChars), 0, (struct sockaddr *) &cliaddr, len);
+        sendto(sockfd, &nSentences, sizeof(nSentences), 0, (struct sockaddr *) &cliaddr, len);
     }
     close(sockfd);
     return 0; 
