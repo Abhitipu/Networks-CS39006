@@ -98,8 +98,6 @@ int main() {
 
         printf("Done\n");
 
-        nSentences--;
-
         memset(buf, '\0', sizeof(buf));
         strcpy(buf, "Parsing complete! Returning results\n");
         send(newsockfd, buf, 100, 0);
