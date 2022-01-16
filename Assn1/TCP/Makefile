@@ -1,10 +1,10 @@
 a.out:
-	cc -o tcpclient  tcpclient.c
-	./tcpclient input.txt
+	cc -o client tcpclient.c
+	./client input.txt
 
-tcpserver: 
-	cc -o tcpserver tcpserver.c
-	./tcpserver
+server: 
+	cc -o server tcpserver.c
+	./server
 
 clean:
-	rm -rf tcpclient tcpserver
+	rm -rf client server
