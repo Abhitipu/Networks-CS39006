@@ -55,9 +55,7 @@ int main() {
         int lastWasLetter = 0;
         nWords = nChars = nSentences = 0;
 
-        // This is used for tracking
-        int toEnd = 0;
-        while(toEnd == 0) {
+        while(1) {
             // Reset buffer everytime
             memset(buf, '\0', sizeof(buf));
             // Receive a max of 100 characters at a time
@@ -69,21 +67,15 @@ int main() {
                 exit(-1);
             }
 
-            printf("%s", buf);
-
-            // end of stream
-            if(check == 0)
-                break;
-
             cur_len = strlen(buf);
+            // End of stream
+            if(cur_len == 0)
+                break;
+            printf("%s", buf);
 
             // Main program logic
             for(int i = 0; i < cur_len && buf[i] != '\0'; i++) {
                 if(buf[i] == ' ' || buf[i] == '.') {
-                    // Here we increase nChars to account for the last '\n'
-                    if(buf[i] == '.' && i > 0 && buf[i-1] == '.')
-                        nChars++, toEnd = 1;
-
                     // If the last one was a letter, we have a new word
                     if(lastWasLetter)
                         nWords++;
@@ -101,15 +93,6 @@ int main() {
                 }
                 // Always increment nChars
                 nChars++;
-            }
-
-            // In case we just receive the last .
-            if(cur_len < 3) {
-                toEnd = 1;
-            } else {
-                // All other cases
-                if(buf[cur_len - 3] == '.' && buf[cur_len - 2] == '.')
-                    toEnd = 1;
             }
         }
         printf("Done\n");

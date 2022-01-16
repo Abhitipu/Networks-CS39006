@@ -127,4 +127,3 @@
 127	Hello Mister.
 128	How do you do.
 129	The last line.
-130	..

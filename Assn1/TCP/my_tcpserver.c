@@ -57,8 +57,7 @@ int main() {
         int lastWasLetter = 0;
         nWords = nChars = nSentences = 0;
 
-        int toEnd = 0;
-        while(toEnd == 0) {
+        while(1) {
             memset(buf, '\0', sizeof(buf));
 
 		    int check = recv(newsockfd, buf, 100, 0);
@@ -69,19 +68,15 @@ int main() {
             }
 
             // end of stream
-            if(check == 0)
+            len = strlen(buf);
+            if(len == 0)
                 break;
 
 		    printf("%s", buf);
-            len = strlen(buf);
 
             // The main logic
             for(int i = 0; i < len && buf[i] != '\0'; i++) {
                 if(buf[i] == ' ' || buf[i] == '.') {
-                    // Accounting for the last '\n'
-                    if(buf[i] == '.' && i > 0 && buf[i-1] == '.')
-                        nChars++, toEnd = 1;
-
                     if(lastWasLetter)
                         nWords++;
 
@@ -98,14 +93,6 @@ int main() {
                 }
                 // Always incremented
                 nChars++;
-            }
-
-            // Special case
-            if(len < 3) {
-                toEnd = 1;
-            } else {
-                if(buf[len - 3] == '.' && buf[len - 2] == '.')
-                    toEnd = 1;
             }
         }
 

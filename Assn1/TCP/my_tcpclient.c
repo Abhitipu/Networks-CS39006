@@ -53,9 +53,14 @@ int main(int argc, char* argv[]) {
 	recv(sockfd, buf, 100, 0);
 	printf("%s\n", buf);
     
-    while(read(input_fd, buf, 100) > 0) {
+    while(1) {
         // send the buffer
+        int sz = read(input_fd, buf, 100);
 	    int check = send(sockfd, buf, 100, 0);
+
+        // end of file
+        if(sz == 0)
+            break;
 
         if(check == -1) {
             perror("Send failed!\n");

@@ -50,9 +50,14 @@ int main(int argc, char* argv[]) {
     printf("%s\n", buf);
 
     // Reading from file using the read api 
-    while(read(input_fd, buf, 100) > 0) {
+    while(1) {
         // send the buffer
+        int sz = read(input_fd, buf, 100);
 	    int check = sendto(sockfd, buf, 100, 0, (struct sockaddr *) &servaddr, len);
+
+        // End of stream
+        if(sz == 0)
+            break;
 
         // Error checking
         if(check == -1) {
