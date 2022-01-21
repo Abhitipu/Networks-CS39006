@@ -6,10 +6,12 @@
 #include <stdlib.h> 
 #include <unistd.h> 
 #include <string.h> 
+
 #include <sys/types.h> 
 #include <sys/socket.h> 
 #include <arpa/inet.h> 
 #include <netinet/in.h> 
+#include <netdb.h>
   
 int main() { 
     int sockfd; 
@@ -37,41 +39,53 @@ int main() {
         exit(EXIT_FAILURE); 
     } 
     
+    printf("Server started\n");
+
+    fd_set myfd;
+    FD_ZERO(&myfd);
+    FD_SET(sockfd, &myfd);
 
     socklen_t len = sizeof(cliaddr);
-    char buf[101]; 
-    memset(buf, '\0', sizeof(buf));
 
-    // Receive message from a client
-	recvfrom(sockfd, (char *)buf, 100, 0, (struct sockaddr *) &cliaddr, &len);
-    printf("%s", buf);
-
+    char buf[101], buf2[101]; 
+    memset(buf2, '\0', sizeof(buf2));
     memset(buf, '\0', sizeof(buf));
-    strcpy(buf, "Hello from server!\n");
-    sendto(sockfd, buf, 100, 0, (struct sockaddr *) &cliaddr, len);
- 
-    len = sizeof(cliaddr);
 
     // The mainloop
     while(1) {
         // Reset buffer everytime
         memset(buf, '\0', sizeof(buf));
-        // Receiving the domain name
-        int check = recvfrom(sockfd, (char *)buf, 100, 0, (struct sockaddr *) &cliaddr, &len);
 
+        // Waiting from the client's side : No time limit
+        int select_status = select(sockfd + 1, &myfd, 0, 0, 0);
+        if(select_status == -1) {
+            perror("Error in select\n");
+            exit(-1);
+        }
+
+        // Receiving the domain name
+        int recv_status = recvfrom(sockfd, (char *)buf, 100, 0, (struct sockaddr *) &cliaddr, &len);
         // Error checking
-        if(check == -1) {
+        if(recv_status == -1) {
             perror("Error in receiving\n");
             exit(-1);
         }
-        
-        printf("%s", buf);
-        
-        // call the gethostbyname method and then return the results here
-        memset(buf, '\0', sizeof(buf));
 
-        strcpy(buf, "Parsing complete! Returning results\n");
-        sendto(sockfd, buf, 100, 0, (struct sockaddr *) &cliaddr, len);
+        printf("Received %s\n", buf);
+        
+        struct hostent* resp = gethostbyname(buf);
+        if(resp != NULL) {
+            strcpy(buf2, inet_ntoa(*((struct in_addr *)resp->h_addr_list[0])));
+        } else {
+            strcpy(buf2, "0.0.0.0");
+        }
+        
+        int send_status = sendto(sockfd, buf2, 100, 0, (struct sockaddr *) &cliaddr, len);
+        if(send_status == -1) {
+            perror("Send failed from server\n");
+            exit(-1);
+        }
+        printf("Successfully sent IP\n");
     }
 
     close(sockfd);
