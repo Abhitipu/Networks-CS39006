@@ -71,7 +71,7 @@ int main() {
             exit(-1);
         }
 
-        printf("Received %s\n", buf);
+        printf("Received: %s\n", buf);
         
         struct hostent* resp = gethostbyname(buf);
         if(resp != NULL) {
