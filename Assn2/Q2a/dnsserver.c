@@ -75,17 +75,35 @@ int main() {
         
         struct hostent* resp = gethostbyname(buf);
         if(resp != NULL) {
-            strcpy(buf2, inet_ntoa(*((struct in_addr *)resp->h_addr_list[0])));
+            int tot_ips= 0;
+            for(; resp->h_addr_list[tot_ips] != NULL; tot_ips++);
+
+            sendto(sockfd, &tot_ips, sizeof(int), 0, (struct sockaddr *)&cliaddr, len);
+
+            for(int i = 0; i < tot_ips; i++) {
+                memset(buf2, '\0', sizeof(buf2));
+                strcpy(buf2, inet_ntoa(*((struct in_addr *)resp->h_addr_list[i])));
+                int send_status = sendto(sockfd, buf2, 100, 0, (struct sockaddr *) &cliaddr, len);
+                if(send_status < 0) {
+                    perror("Send failed from server\n");
+                    exit(-1);
+                }
+            }
+
         } else {
+            // Send -1 for error
+            int tot_ips = -1;
+            sendto(sockfd, &tot_ips, sizeof(int), 0, (struct sockaddr *)&cliaddr, len);
+
             strcpy(buf2, "0.0.0.0");
+            int send_status = sendto(sockfd, buf2, 100, 0, (struct sockaddr *) &cliaddr, len);
+            if(send_status < 0) {
+                perror("Send failed from server\n");
+                exit(-1);
+            }
         }
         
-        int send_status = sendto(sockfd, buf2, 100, 0, (struct sockaddr *) &cliaddr, len);
-        if(send_status < 0) {
-            perror("Send failed from server\n");
-            exit(-1);
-        }
-        printf("Successfully sent IP\n");
+        printf("Successfully sent IPs\n");
     }
 
     close(sockfd);
