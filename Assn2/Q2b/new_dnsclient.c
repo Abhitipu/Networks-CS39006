@@ -33,21 +33,78 @@ int main(int argc, char* argv[]) {
 		exit(0);
 	}
 
-    // Reading from input file
 	char buf[101];
     memset(buf, '\0', sizeof(buf));
 
-    // We will receive a notification when connected to server!
-	recv(sockfd, buf, 100, 0);
-	printf("%s\n", buf);
-    
-	int parse_status = recv(sockfd, buf, 100, 0);
+    printf("Enter domain name for obtaining ip: ");
+    scanf("%s", buf);
+
+    int send_status = send(sockfd, buf, 100, 0);
+    if(send_status < 0) {
+        perror("Error in send\n");
+        exit(-1);
+    }
+
+    fd_set myfd;
+    FD_ZERO(&myfd);
+    FD_SET(sockfd, &myfd);
+
+    struct timeval timer;
+    timer.tv_sec = 2;
+    timer.tv_usec = 0;
+
+    int select_status = select(sockfd + 1, &myfd, 0, 0, &timer);
+
+    int n_ips;
+	int parse_status = recv(sockfd, &n_ips, sizeof(int), 0);
     if(parse_status < 0) {
         printf("Couldn't send file completely!\n");
         exit(-1);
     }
-    
-    printf("%s\n", buf);
+
+    if(n_ips != -1) {
+        printf("Obtained %d ip addresses\n", n_ips);
+        for(int i = 0; i < n_ips; i++) {
+            timer.tv_sec = 2;
+            timer.tv_usec = 0;
+
+            int select_status = select(sockfd + 1, &myfd, 0, 0, &timer);
+            if(select_status < 0) {
+                perror("Error in select\n");
+                exit(-1);
+            }
+
+            if(timer.tv_sec == 0 && timer.tv_usec == 0) {
+                printf("Connection timed out!\n");
+                exit(-1);
+            }
+            
+            memset(buf, '\0', sizeof(buf));
+            int recv_status = recv(sockfd, buf, 100, 0);
+            // Error checking
+            if(recv_status < 0) {
+                perror("Error in receiving\n");
+                exit(-1);
+            }
+
+            printf("%s\n", buf);
+        }
+    } else {
+        printf("Invalid domain name entered!\n");
+
+        int select_status = select(sockfd + 1, &myfd, 0, 0, &timer);
+        if(select_status < 0) {
+            perror("Error in select!\n");
+            close(sockfd);
+            exit(-1);
+        }
+
+        int parse_status = recv(sockfd, buf, 100, 0);
+        if(parse_status < 0) {
+            perror("Error in recv!\n");
+            exit(-1);
+        }
+    }
 
 	close(sockfd);
     // Now we will close it
