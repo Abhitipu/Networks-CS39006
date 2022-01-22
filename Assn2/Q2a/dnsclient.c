@@ -51,9 +51,17 @@ int main(int argc, char* argv[]) {
     timer.tv_usec = 0;
 
     int send_status = sendto(sockfd, (const char *)buf, 100, 0, (struct sockaddr *) &servaddr, len); 
+    if(send_status < 0) {
+        perror("Error in send\n");
+        exit(-1);
+    }
 
     // Wait for some response from server end
     int select_status = select(sockfd + 1, &myfd, 0, 0, &timer);
+    if(select_status < 0) {
+        perror("Error in select\n");
+        exit(-1);
+    }
 
     if(timer.tv_sec == 0 && timer.tv_usec == 0) {
         printf("Connection timed out!\n");
@@ -62,7 +70,7 @@ int main(int argc, char* argv[]) {
 
     int recv_status = recvfrom(sockfd, buf, 100, 0, (struct sockaddr *) &servaddr, &len);
     // Error checking
-    if(recv_status == -1) {
+    if(recv_status < 0) {
         perror("Error in receiving\n");
         exit(-1);
     }

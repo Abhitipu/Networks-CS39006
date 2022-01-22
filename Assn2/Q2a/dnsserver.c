@@ -58,7 +58,7 @@ int main() {
 
         // Waiting from the client's side : No time limit
         int select_status = select(sockfd + 1, &myfd, 0, 0, 0);
-        if(select_status == -1) {
+        if(select_status < 0) {
             perror("Error in select\n");
             exit(-1);
         }
@@ -66,7 +66,7 @@ int main() {
         // Receiving the domain name
         int recv_status = recvfrom(sockfd, (char *)buf, 100, 0, (struct sockaddr *) &cliaddr, &len);
         // Error checking
-        if(recv_status == -1) {
+        if(recv_status < 0) {
             perror("Error in receiving\n");
             exit(-1);
         }
@@ -81,7 +81,7 @@ int main() {
         }
         
         int send_status = sendto(sockfd, buf2, 100, 0, (struct sockaddr *) &cliaddr, len);
-        if(send_status == -1) {
+        if(send_status < 0) {
             perror("Send failed from server\n");
             exit(-1);
         }
