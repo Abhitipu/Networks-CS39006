@@ -27,6 +27,7 @@ int main(int argc, char* argv[]) {
 	inet_aton("127.0.0.1", &serv_addr.sin_addr);    // This will set the value
 	serv_addr.sin_port	= htons(20000);
     
+    // Alright so we need to delay connect here?
 	if ((connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) < 0) {
 		perror("Unable to connect to server\n");
 		exit(0);
