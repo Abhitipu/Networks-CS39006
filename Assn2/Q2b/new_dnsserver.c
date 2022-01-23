@@ -58,27 +58,21 @@ int main() {
 	tcp_servaddr.sin_addr.s_addr	= INADDR_ANY;   
 	tcp_servaddr.sin_port		= htons(20000);     // Network Byte Order or big endian system
 
-    // Bind the socket with the server address 
+    // Bind the udp and tcp socket with the server address 
     if(bind(udp_sockfd, (const struct sockaddr *)&udp_servaddr, sizeof(udp_servaddr)) < 0 ) { 
         perror("bind failed"); 
         exit(EXIT_FAILURE); 
     } 
 
-    //  We will bind it to a port on our machine
 	if (bind(tcp_sockfd, (struct sockaddr *) &tcp_servaddr, sizeof(tcp_servaddr)) < 0) {
-        // There is a global variable called errno which gets set in case of an error
 		perror("Unable to bind local address\n");
 		exit(0);
 	}
 
-	listen(tcp_sockfd, 5);  //  5 concurrent connections
+	listen(tcp_sockfd, 5);  //  5 concurrent connections for tcp
 
     printf("Server started\n");
 
-    fd_set myfd;
-    FD_ZERO(&myfd);
-    FD_SET(udp_sockfd, &myfd);
-    FD_SET(tcp_sockfd, &myfd);
 
     socklen_t udp_clilen = sizeof(udp_cliaddr);
 	socklen_t tcp_clilen = sizeof(tcp_cliaddr);
@@ -87,8 +81,13 @@ int main() {
     memset(buf2, '\0', sizeof(buf2));
     memset(buf, '\0', sizeof(buf));
 
-
     while(1) {
+
+        fd_set myfd;
+        FD_ZERO(&myfd);
+        FD_SET(udp_sockfd, &myfd);
+        FD_SET(tcp_sockfd, &myfd);
+
         struct timeval timer;
         timer.tv_sec = 100;
         timer.tv_usec = 0;
@@ -169,8 +168,12 @@ int main() {
                     }
                 }
                 printf("Successfully sent IPs\n");
+                close(tcp_newsockfd);
+                break;
+            } else {
+                // parent
+                continue;
             }
-            continue;
         }
 
         if(FD_ISSET(udp_sockfd, &myfd)) {

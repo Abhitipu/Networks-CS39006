@@ -18,10 +18,6 @@
   
 int main(int argc, char* argv[]) { 
     
-    char buf[101];
-    memset(buf, '\0', sizeof(buf));
-    printf("Enter domain name to obtain ip address: ");
-    scanf("%s", buf);
 
     // Creating the socket
 	int	sockfd;
@@ -49,6 +45,11 @@ int main(int argc, char* argv[]) {
     struct timeval timer;
     timer.tv_sec = 2;
     timer.tv_usec = 0;
+
+    char buf[101];
+    memset(buf, '\0', sizeof(buf));
+    printf("Enter domain name to obtain ip address: ");
+    scanf("%s", buf);
 
     int send_status = sendto(sockfd, (const char *)buf, 100, 0, (struct sockaddr *) &servaddr, len); 
     if(send_status < 0) {
