@@ -1,9 +1,3 @@
-// take a host name
-// send to the server using the udp socket
-// Get the ip from the server and print it
-// if 0.0.0.0 : exit with message
-// if server is busy : wait for 2 seconds and close with message
-
 /** THE UDP CLIENT **/
 #include <stdio.h> 
 #include <stdlib.h> 
@@ -105,6 +99,20 @@ int main(int argc, char* argv[]) {
         }
     } else {
         printf("Invalid domain name entered!\n");
+
+        timer.tv_sec = 2;
+        timer.tv_usec = 0;
+
+        int select_status = select(sockfd + 1, &myfd, 0, 0, &timer);
+        if(select_status < 0) {
+            perror("Error in select\n");
+            exit(-1);
+        }
+
+        if(timer.tv_sec == 0 && timer.tv_usec == 0) {
+            printf("Connection timed out!\n");
+            exit(-1);
+        }
 
         memset(buf, '\0', sizeof(buf));
         int recv_status = recvfrom(sockfd, buf, 100, 0, (struct sockaddr *) &servaddr, &len);
