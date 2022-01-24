@@ -1,6 +1,3 @@
-// Get a domain name from the client
-// Return corresponding ip address using the gethostbyname method
-// Assume iterative server
 /** THE UDP SERVER**/
 #include <stdio.h> 
 #include <stdlib.h> 
@@ -41,6 +38,7 @@ int main() {
     
     printf("Server started\n");
 
+    // fd set for select()
     fd_set myfd;
     FD_ZERO(&myfd);
     FD_SET(sockfd, &myfd);
@@ -74,6 +72,7 @@ int main() {
         printf("Received: %s\n", buf);
         
         struct hostent* resp = gethostbyname(buf);
+        // Error checking
         if(resp != NULL) {
             int tot_ips= 0;
             for(; resp->h_addr_list[tot_ips] != NULL; tot_ips++);

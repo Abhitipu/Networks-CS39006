@@ -40,6 +40,7 @@ int main(int argc, char* argv[]) {
     FD_ZERO(&myfd);
     FD_SET(sockfd, &myfd);
 
+    // Implementation of 2 sec timeout
     struct timeval timer;
     timer.tv_sec = 2;
     timer.tv_usec = 0;
@@ -82,6 +83,7 @@ int main(int argc, char* argv[]) {
                 exit(-1);
             }
 
+            // timeout check
             if(timer.tv_sec == 0 && timer.tv_usec == 0) {
                 printf("Connection timed out!\n");
                 exit(-1);
@@ -125,6 +127,7 @@ int main(int argc, char* argv[]) {
         printf("%s\n", buf);
     }
 
+    // Closing after completion
     close(sockfd); 
     return 0; 
 } 
