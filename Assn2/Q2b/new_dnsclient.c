@@ -1,4 +1,3 @@
-// Client implementation using tcp
 /** TCP CLIENT **/
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,7 +26,6 @@ int main(int argc, char* argv[]) {
 	inet_aton("127.0.0.1", &serv_addr.sin_addr);    // This will set the value
 	serv_addr.sin_port	= htons(20000);
     
-    // Alright so we need to delay connect here?
 	if ((connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) < 0) {
 		perror("Unable to connect to server\n");
 		exit(0);
@@ -44,7 +42,8 @@ int main(int argc, char* argv[]) {
         perror("Error in send\n");
         exit(-1);
     }
-
+    
+    // fd_set for select()
     fd_set myfd;
     FD_ZERO(&myfd);
     FD_SET(sockfd, &myfd);
@@ -62,6 +61,7 @@ int main(int argc, char* argv[]) {
         exit(-1);
     }
 
+    // In case of errors we receive -1
     if(n_ips != -1) {
         printf("Obtained %d ip addresses\n", n_ips);
         for(int i = 0; i < n_ips; i++) {
@@ -104,6 +104,8 @@ int main(int argc, char* argv[]) {
             perror("Error in recv!\n");
             exit(-1);
         }
+
+        printf("%s\n", buf);
     }
 
 	close(sockfd);

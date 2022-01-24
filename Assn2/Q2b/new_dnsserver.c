@@ -1,10 +1,3 @@
-// DNS server to handle both tcp and ip
-// Get a domain name from the client
-// Return corresponding ip address using the gethostbyname method
-
-// CONCURRENT SERVER : We're gonna fork here : P
-// Also we'll need to open 2 sockets and handle both of them!!
-
 /** THE UDP SERVER**/
 #include <stdio.h> 
 #include <stdlib.h> 
@@ -83,13 +76,15 @@ int main() {
 
     while(1) {
 
+        // Maintaining file descriptors
         fd_set myfd;
         FD_ZERO(&myfd);
         FD_SET(udp_sockfd, &myfd);
         FD_SET(tcp_sockfd, &myfd);
 
+        // Server waits for a considerably long time for the initial connection
         struct timeval timer;
-        timer.tv_sec = 100;
+        timer.tv_sec = 300;
         timer.tv_usec = 0;
 
         int select_status = select(Max(udp_sockfd, tcp_sockfd) + 1, &myfd, 0, 0, &timer);
@@ -99,6 +94,7 @@ int main() {
             exit(-1);
         }
 
+        // TCP
         if(FD_ISSET(tcp_sockfd, &myfd)) {
             // Handle the tcp connection with a fork (concurrent)
             tcp_newsockfd = accept(tcp_sockfd, (struct sockaddr *) &tcp_cliaddr, &tcp_clilen);
@@ -109,7 +105,7 @@ int main() {
             }
 
             if(fork() == 0) {
-                // child: Need to figure this out
+                // child: Handles the new tcp connection
                 memset(buf, '\0', sizeof(buf));
 
                 timer.tv_sec = 2;
@@ -176,6 +172,7 @@ int main() {
             }
         }
 
+        // UDP
         if(FD_ISSET(udp_sockfd, &myfd)) {
             // The udp server (iterative)
 
@@ -190,6 +187,7 @@ int main() {
             printf("Received: %s\n", buf);
 
             struct hostent* resp = gethostbyname(buf);
+            // error checking
             if(resp != NULL) {
                 int tot_ips= 0;
                 for(; resp->h_addr_list[tot_ips] != NULL; tot_ips++);

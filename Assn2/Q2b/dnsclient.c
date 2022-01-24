@@ -1,9 +1,3 @@
-// take a host name
-// send to the server using the udp socket
-// Get the ip from the server and print it
-// if 0.0.0.0 : exit with message
-// if server is busy : wait for 2 seconds and close with message
-
 /** THE UDP CLIENT **/
 #include <stdio.h> 
 #include <stdlib.h> 
@@ -42,6 +36,7 @@ int main(int argc, char* argv[]) {
     FD_ZERO(&myfd);
     FD_SET(sockfd, &myfd);
 
+    // Implementation of the 2s timeout
     struct timeval timer;
     timer.tv_sec = 2;
     timer.tv_usec = 0;
