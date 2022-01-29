@@ -2,3 +2,7 @@
 *.zip
 *.gz
 .vscode/
+
+# Ignore executables
+/client
+/server
