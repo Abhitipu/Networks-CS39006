@@ -151,7 +151,27 @@ int main(int argc, char* argv[]) {
             }
 
             case AUTHENTICATED: {
+                // commands 4-10 are executed here
+                int send_status = send(sockfd, buf, BUFFER_SIZE - 1, 0);
+                if(send_status < 0) {
+                    perror("Error in send\n");
+                    exit(-1);
+                }
 
+                if(strcmp(buf, "dir") == 0) {
+                    bzero(buf, sizeof(buf));
+                    int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
+                    if(parse_status < 0) {
+                        printf("Couldn't send file completely!\n");
+                        exit(-1);
+                    }
+                    char *b = buf;
+                    while(strlen(b) > 0)
+                    {
+                        printf("%s\n", b);
+                        b = b + strlen(b) + 1;
+                    }
+                }
                 /* code
                 get all commands
                 */

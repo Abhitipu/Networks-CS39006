@@ -7,4 +7,4 @@ server: ftpS.c
 	./server
 
 clean:
-	rm client server
+	rm client server test

@@ -2,10 +2,11 @@
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <unistd.h> 
-#include <string.h> 
-#include <sys/stat.h>
+#include <string.h>
 #include <fcntl.h>
+#include <dirent.h>
 
+#include <sys/stat.h>
 #include <sys/types.h> 
 #include <sys/socket.h> 
 #include <arpa/inet.h> 
@@ -24,7 +25,11 @@
 
 #define BUFFER_SIZE 101
 #define PORT 20003
-
+int mycat(char *buf, int bufsize, char *buf2)
+{
+    strcat(buf+bufsize, buf2);
+    return bufsize + strlen(buf2) + 1;
+}
 int user_exists(char* username)
 {
     FILE *fp;
@@ -238,6 +243,42 @@ int main(int argc, char* argv[]) {
                 
             }
             case AUTHENTICATED: {
+
+                if(strcmp(buf, "dir") == 0) {
+                    DIR *dir;
+                    struct dirent *dp;
+                    char * file_name;
+                    dir = opendir(".");
+                    bzero(buf, sizeof(buf));
+                    int cur = 0;
+                    while ((dp=readdir(dir)) != NULL) {
+                        // "Anndas\0aNani\0\0"
+                        printf("debug: %s\n", dp->d_name);
+                        if ( strcmp(dp->d_name, ".")==0 || strcmp(dp->d_name, "..")==0 )
+                        {
+                            // do nothing (straight logic)
+                        } else {
+                            cur = mycat(buf, cur, dp->d_name);
+                        }
+                    }
+
+                    char *b = buf;
+                    while(strlen(b) > 0)
+                    {
+                        printf("%s\n", b);
+                        b = b + strlen(b) + 1;
+                    }
+                    // bzero(buf, sizeof(buf));
+                    // sending empty string at the end
+                    int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+                    if(send_status < 0) {
+                        perror("Error in send\n");
+                        exit(-1);
+                    }
+                    closedir(dir);
+                } else {
+
+                }
                 /* code
                 get all commands
                 */
