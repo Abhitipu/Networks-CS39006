@@ -9,9 +9,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
-#include <regex.h>
 
-#define PORT 20000
 #define BUFFER_SIZE 101
 
 #define START 0
@@ -20,17 +18,9 @@
 #define AUTHENTICATED 3
 #define QUIT 4
 
-int count(char* inp, char toSearch) {
-    if(inp == NULL)
-        return 0;
-
-    int n = strlen(inp);
-    int ans = 0;
-    for(int i = 0; i < n; i++)
-        ans += (inp[i] == toSearch);
-    
-    return ans;
-}
+#define SUCCESS "200"
+#define ERROR1 "500"
+#define ERROR2 "600"
 
 int main(int argc, char* argv[]) {
     // Creating the socket
@@ -51,6 +41,11 @@ int main(int argc, char* argv[]) {
         scanf(" %[^\n]", buf);
         printf("Got : %s\n", buf);
 
+        // check for quit
+        if(strcmp(buf, "quit") == 0) {
+            state = QUIT;
+        }
+
         switch (state) {           
             case START: {
                 // open ip port
@@ -59,12 +54,12 @@ int main(int argc, char* argv[]) {
                 memset(ip, '\0', sizeof(ip));
                 
                 int ret = sscanf(buf,"open %s %s", ip, port);
-
-                printf("ret = %d\n", ret);
+                
+                // printf("ret = %d\n", ret);
                 printf("Ip : %s\n", ip);
                 printf("Port : %s\n", port);
 
-                if(ret < 2 || count(buf, ' ') > 2) {
+                if(ret < 2) {
                     printf("len(buf) = %ld\n", strlen(buf));
                     printf("Incorrect command format!\n");
                     printf("Expected format is: ?\n");
@@ -89,42 +84,72 @@ int main(int argc, char* argv[]) {
             }
 
             case OPENED: {
-                /*
+                // send username
+                printf("Inside opened!\n");
+
                 int send_status = send(sockfd, buf, BUFFER_SIZE - 1, 0);
                 if(send_status < 0) {
                     perror("Error in send\n");
                     exit(-1);
                 }
-                // fd_set for select()
 
-                fd_set myfd;
-                FD_ZERO(&myfd);
-                FD_SET(sockfd, &myfd);
+                printf("Sent to server\n");
 
-                struct timeval timer;
-                timer.tv_sec = 2;
-                timer.tv_usec = 0;
-
-                int select_status = select(sockfd + 1, &myfd, 0, 0, &timer);
-
-                int n_ips;
-                int parse_status = recv(sockfd, &n_ips, sizeof(int), 0);
+                bzero(buf, sizeof(buf));
+                int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
                 if(parse_status < 0) {
                     printf("Couldn't send file completely!\n");
                     exit(-1);
                 }
-                get user and check
-                */
-                break;
 
-            }
-            case GOT_USER: {
-                /*
-                get password and check
-                */
+                printf("Received from server\n");
+
+                if(strcmp(buf, SUCCESS) == 0) {
+                    printf("Matched username\n");
+                    state = GOT_USER;
+                } else if (strcmp(buf, ERROR2) == 0) {
+                    printf("Incorrect command sent!\n");
+                } else if (strcmp(buf, ERROR1) == 0) {
+                    printf("Username doesn't exist!\n");
+                } else {
+                    printf("Something's not right in username!\n");
+                    exit(-1);
+                }
                 break;
-                
             }
+
+            case GOT_USER: {
+                // send password
+                int send_status = send(sockfd, buf, BUFFER_SIZE - 1, 0);
+                if(send_status < 0) {
+                    perror("Error in send\n");
+                    exit(-1);
+                }
+
+                bzero(buf, sizeof(buf));
+                int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
+                if(parse_status < 0) {
+                    printf("Couldn't send file completely!\n");
+                    exit(-1);
+                }
+
+                if(strcmp(buf, SUCCESS) == 0) {
+                    printf("Matched password\n");
+                    state = AUTHENTICATED;
+                } else if (strcmp(buf, ERROR2) == 0) {
+                    printf("Incorrect command sent!\n");
+                    state = OPENED;
+                } else if (strcmp(buf, ERROR1) == 0) {
+                    printf("Password doesn't match!\n");
+                    state = OPENED;
+                } else {
+                    printf("Something's not right in password!\n");
+                    exit(-1);
+                }
+
+                break;
+            }
+
             case AUTHENTICATED: {
 
                 /* code
@@ -133,7 +158,14 @@ int main(int argc, char* argv[]) {
                 break;
             }
             case QUIT: {
-                // Now we will close it
+                // send quit command to server!
+                int send_status = send(sockfd, buf, BUFFER_SIZE - 1, 0);
+                if(send_status < 0) {
+                    perror("Error in send\n");
+                    exit(-1);
+                }
+
+                // and close our socket
             	close(sockfd);
                 break;
             }

@@ -3,6 +3,8 @@
 #include <stdlib.h> 
 #include <unistd.h> 
 #include <string.h> 
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include <sys/types.h> 
 #include <sys/socket.h> 
@@ -10,9 +12,59 @@
 #include <netinet/in.h> 
 #include <netdb.h>
 
-int main() { 
-	int	tcp_sockfd, tcp_newsockfd;
+#define START 0
+#define OPENED 1
+#define GOT_USER 2
+#define AUTHENTICATED 3
+#define QUIT 4
 
+#define SUCCESS "200"
+#define ERROR1 "500"
+#define ERROR2 "600"
+
+#define BUFFER_SIZE 101
+#define PORT 20003
+
+int user_exists(char* username)
+{
+    FILE *fp;
+    int c;
+    fp = fopen("user.txt","r");
+    char buf1[100] , buf2[100];
+    while(fscanf(fp, "%s %s", buf1, buf2) > 0)
+    {
+        // usernames
+        if(strcmp(buf1, username) == 0)
+        {
+            fclose(fp);
+            return 1;
+        }
+    }
+    fclose(fp);
+    return 0;
+
+}
+
+int password_exists(char* username, char* password) {
+    FILE *fp;
+    int c;
+    fp = fopen("user.txt","r");
+    char buf1[100] , buf2[100];
+    while(fscanf(fp, "%s %s", buf1, buf2) > 0)
+    {
+        // usernames
+        if((strcmp(buf1, username) == 0) && strcmp(buf2, password) == 0)
+        {
+            fclose(fp);
+            return 1;
+        }
+    }
+    fclose(fp);
+    return 0;
+}
+
+int main(int argc, char* argv[]) { 
+	int	tcp_sockfd, tcp_newsockfd;
 	struct sockaddr_in	tcp_cliaddr, tcp_servaddr;
 
     // Create tcp socket
@@ -28,7 +80,7 @@ int main() {
     // All this is server info
 	tcp_servaddr.sin_family		= AF_INET;
 	tcp_servaddr.sin_addr.s_addr	= INADDR_ANY;   
-	tcp_servaddr.sin_port		= htons(20000);     // Network Byte Order or big endian system
+	tcp_servaddr.sin_port		= htons(PORT);     // Network Byte Order or big endian system
 
     // Bind the tcp socket with the server address 
 	if (bind(tcp_sockfd, (struct sockaddr *) &tcp_servaddr, sizeof(tcp_servaddr)) < 0) {
@@ -42,12 +94,18 @@ int main() {
 
 	socklen_t tcp_clilen = sizeof(tcp_cliaddr);
 
-    char buf[101], buf2[101]; 
+    char buf[BUFFER_SIZE + 1], buf2[BUFFER_SIZE + 1]; 
+    char username[BUFFER_SIZE + 1], password[BUFFER_SIZE + 1];
+
     memset(buf2, '\0', sizeof(buf2));
     memset(buf, '\0', sizeof(buf));
-
-    while(1) {
-
+    memset(username, '\0', sizeof(username));
+    memset(password, '\0', sizeof(password));
+    
+    int state = START;
+    while(state == START)
+    {
+        // TCP
         // Maintaining file descriptors
         fd_set myfd;
         FD_ZERO(&myfd);
@@ -65,7 +123,6 @@ int main() {
             exit(-1);
         }
 
-        // TCP
         if(FD_ISSET(tcp_sockfd, &myfd)) {
             // Handle the tcp connection with a fork (concurrent)
             tcp_newsockfd = accept(tcp_sockfd, (struct sockaddr *) &tcp_cliaddr, &tcp_clilen);
@@ -77,40 +134,125 @@ int main() {
 
             if(fork() == 0) {
                 // child: Handles the new tcp connection
-                memset(buf, '\0', sizeof(buf));
-
-                int select_status = select(tcp_sockfd + 1, &myfd, 0, 0, 0);
-
-                if(select_status < 0) {
-                    perror("Error in select\n");
-                    exit(-1);
-                }
-
-                int recv_status = recv(tcp_newsockfd, buf, 100, 0);
-                if(recv_status < 0) {
-                    perror("Error in recv!\n");
-                    exit(-1);
-                }
-
-                printf("Received: %s\n", buf);
-
-                close(tcp_newsockfd);
+                // close(tcp_sockfd);
+                state = OPENED;
                 break;
             } else {
                 // parent
-                continue;
             }
         }
 
         if(FD_ISSET(tcp_sockfd, &myfd) == 0) {
             // timed out
             printf("Server timed out\n");
-            break;
+            state = QUIT;
+            close(tcp_sockfd);
+            exit(1);
         }
     }
 
-    // Close socket
-    close(tcp_sockfd);
+    while(state != QUIT) {
+        // common recv
+        bzero(buf, sizeof(buf));
+        int recv_status = recv(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+        if(recv_status < 0) {
+            perror("Error in recv!\n");
+            exit(-1);
+        }
+        printf("Received %s\n", buf);
+        if(strcmp(buf, "quit") == 0) {
+            state = QUIT;
+        }
+
+        switch (state) {           
+
+            case OPENED: {
+                printf("In opened\n");
+                
+                int ret = sscanf(buf,"user %s", username);
+                bzero(buf, sizeof(buf));
+
+                if(ret < 1) {
+                    // printf("len(buf) = %ld\n", strlen(buf));
+                    printf("Incorrect command format!\n");
+                    printf("Expected format is: ?\n");
+                    // incorrect command : return 600
+                    strcpy(buf, ERROR2);
+                }
+                else
+                {
+                    // check for user in user.txt
+                    if(user_exists(username)) {
+                        printf("%s accepted\n", username);
+                        // correct username : return 200
+                        strcpy(buf, SUCCESS);
+                        state = GOT_USER;
+                    } else {
+                        // incorrect username : return 500
+                        strcpy(buf, ERROR1);
+                    }
+                }
+                int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+                if(send_status < 0) {
+                    perror("Error in send\n");
+                    exit(-1);
+                }
+                
+                break;
+            }
+            case GOT_USER: {
+                // Get password corresponding to the user
+                int ret = sscanf(buf,"pass %s", password);
+                bzero(buf, sizeof(buf));
+                if(ret < 1) {
+                    // printf("len(buf) = %ld\n", strlen(buf));
+                    printf("Incorrect command format!\n");
+                    printf("Expected format is: ?\n");
+
+                    // incorrect command : return 600
+                    strcpy(buf, ERROR2);
+                    state = OPENED;
+                }
+                else
+                {
+                    // check for corresponding password in user.txt
+                    if(password_exists(username, password)) {
+                        printf("%s accepted\n", password);
+                        // incorrect username : return 500
+                        strcpy(buf, SUCCESS);
+                        state = AUTHENTICATED;
+                    } else {
+                        // incorrect password : return 500
+                        strcpy(buf, ERROR1);
+                        state = OPENED;
+                    }
+                }
+
+                int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+                if(send_status < 0) {
+                    perror("Error in send\n");
+                    exit(-1);
+                }
+
+                break;
+                
+            }
+            case AUTHENTICATED: {
+                /* code
+                get all commands
+                */
+                break;
+            }
+            case QUIT: {
+                // Now we will close it
+                close(tcp_sockfd);
+                close(tcp_newsockfd);
+                break;
+            }
+            default:
+                break;
+        }
+    }
 
     return 0; 
 }
