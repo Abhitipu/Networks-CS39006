@@ -141,6 +141,7 @@ int main(int argc, char* argv[]) {
                 // child: Handles the new tcp connection
                 // close(tcp_sockfd);
                 state = OPENED;
+                // state = AUTHENTICATED; // TODO - REMOVE THIS LINE
                 break;
             } else {
                 // parent
@@ -243,8 +244,11 @@ int main(int argc, char* argv[]) {
                 
             }
             case AUTHENTICATED: {
-
-                if(strcmp(buf, "dir") == 0) {
+                // extract the first word/ command from buffer
+                char cmd[BUFFER_SIZE];
+                sscanf(buf, "%s", cmd);
+                printf("The command received is %s\n", cmd);
+                if(strcmp(cmd, "dir") == 0) {
                     DIR *dir;
                     struct dirent *dp;
                     char * file_name;
@@ -276,7 +280,32 @@ int main(int argc, char* argv[]) {
                         exit(-1);
                     }
                     closedir(dir);
-                } else {
+                } else if(strcmp(cmd, "cd") == 0){
+                    char path[BUFFER_SIZE];
+                    int ret = sscanf(buf,"cd %s", path);
+                    bzero(buf, sizeof(buf));
+                    if(ret < 1) {
+                        printf("Incorrect command format!\n");
+                        printf("Expected format is: cd {dirname}\n");
+                        // incorrect command : return 500
+                        strcpy(buf, ERROR1);
+                    }
+                    else{
+                        if(chdir(path)==-1) {
+                            // error
+                            strcpy(buf, ERROR1);
+                            perror("couldn\'t change diretory\n");
+                        }
+                        else{
+                            strcpy(buf, SUCCESS);
+                        }
+                    }
+                    printf("Sending %s\n", buf);
+                    int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+                    if(send_status < 0) {
+                        perror("Error in send\n");
+                        exit(-1);
+                    }
 
                 }
                 /* code

@@ -9,6 +9,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <fcntl.h>
+#include <dirent.h>
 
 #define BUFFER_SIZE 101
 
@@ -80,6 +81,7 @@ int main(int argc, char* argv[]) {
                 }
 
                 state = OPENED;
+                // state = AUTHENTICATED; // TODO- REMOVE THIS
                 break;
             }
 
@@ -151,14 +153,47 @@ int main(int argc, char* argv[]) {
             }
 
             case AUTHENTICATED: {
+                // extract the first word/ command from buffer
+                char cmd[BUFFER_SIZE];
+                sscanf(buf, "%s", cmd);
+
                 // commands 4-10 are executed here
+                if(strcmp(cmd, "lcd")==0){
+                    char path[BUFFER_SIZE];
+                    int ret = sscanf(buf,"lcd %s", path);
+                    printf("ret = %d, path = %s\n", ret, path);
+                    if(ret < 1) {
+                        printf("Incorrect command format!\n");
+                        printf("Expected format is: lcd {dirname}\n");
+                        break;
+                    }
+                    if(chdir(path)==-1) {
+                        // error
+                        perror("couldn\'t change diretory\n");
+                    }
+                    break;
+                }
+                else if(strcmp(cmd, "ldir")==0){
+                    // Extra feature
+                    DIR *dir;
+                    struct dirent *dp;
+                    char * file_name;
+                    dir = opendir(".");
+                    while ((dp=readdir(dir)) != NULL) {
+                        printf("%s\n", dp->d_name);
+                    }
+                    closedir(dir);
+                    break;
+                }
+
+
                 int send_status = send(sockfd, buf, BUFFER_SIZE - 1, 0);
                 if(send_status < 0) {
                     perror("Error in send\n");
                     exit(-1);
                 }
 
-                if(strcmp(buf, "dir") == 0) {
+                if(strcmp(cmd, "dir") == 0) {
                     bzero(buf, sizeof(buf));
                     int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
                     if(parse_status < 0) {
@@ -171,6 +206,26 @@ int main(int argc, char* argv[]) {
                         printf("%s\n", b);
                         b = b + strlen(b) + 1;
                     }
+                }
+                else if(strcmp(cmd, "cd") == 0){
+                    bzero(buf, sizeof(buf));
+                    int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
+                    if(parse_status < 0) {
+                        printf("Couldn't send file completely!\n");
+                        exit(-1);
+                    }
+
+                    if(strcmp(buf, SUCCESS) == 0) {
+                        printf("Server dir changed successfully\n");
+                    } else if (strcmp(buf, ERROR1) == 0) {
+                        printf("Error 500, please try again!\n");
+                    }
+                }
+                else if(strcmp(cmd, "lcd") == 0){
+                    printf("still not implemented\n");
+                }
+                else if(strcmp(cmd, "cd") == 0){
+                    printf("still not implemented\n");
                 }
                 /* code
                 get all commands
