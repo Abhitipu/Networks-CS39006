@@ -24,7 +24,7 @@
 #define ERROR2 "600"
 
 #define BUFFER_SIZE 101
-#define PORT 20003
+#define PORT 20000
 int mycat(char *buf, int bufsize, char *buf2)
 {
     strcat(buf+bufsize, buf2);
@@ -140,8 +140,8 @@ int main(int argc, char* argv[]) {
             if(fork() == 0) {
                 // child: Handles the new tcp connection
                 // close(tcp_sockfd);
-                state = OPENED;
-                // state = AUTHENTICATED; // TODO - REMOVE THIS LINE
+                // state = OPENED;
+                state = AUTHENTICATED; // TODO - REMOVE THIS LINE
                 break;
             } else {
                 // parent
@@ -165,7 +165,6 @@ int main(int argc, char* argv[]) {
             perror("Error in recv!\n");
             exit(-1);
         }
-        printf("Received %s\n", buf);
         if(strcmp(buf, "quit") == 0) {
             state = QUIT;
         }
@@ -300,7 +299,6 @@ int main(int argc, char* argv[]) {
                             strcpy(buf, SUCCESS);
                         }
                     }
-                    printf("Sending %s\n", buf);
                     int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
                     if(send_status < 0) {
                         perror("Error in send\n");
@@ -308,9 +306,61 @@ int main(int argc, char* argv[]) {
                     }
 
                 }
-                /* code
-                get all commands
-                */
+                else if(strcmp(cmd, "get") == 0){
+                    // try to open remote_file
+                    char remote_file[BUFFER_SIZE + 1], local_file[BUFFER_SIZE + 1];
+                    sscanf(buf, "get %s %s", remote_file, local_file);
+                    
+                    int get_fd = open(remote_file, O_RDONLY);
+                    if(get_fd < 0) {
+                        printf("Can't open file from server side!\n");
+                        bzero(buf, sizeof(buf));
+                        strcpy(buf, ERROR1);
+                        int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+                        if(send_status < 0) {
+                            perror("Error in send\n");
+                            exit(-1);
+                        }
+                    }
+                    bzero(buf, sizeof(buf));
+                    strcpy(buf, SUCCESS);
+                    int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+                    if(send_status < 0) {
+                        perror("Error in send\n");
+                        exit(-1);
+                    }
+
+                    // send the file block by block
+                    ssize_t read_ret;
+                    
+                    while(1) {
+                        bzero(buf, sizeof(buf));
+                        ssize_t read_ret = read(get_fd, buf + 3, BUFFER_SIZE-3);
+                        if(read_ret > 0) {
+                            buf[0] = 'M';
+                        } else if(read_ret == 0){
+                            buf[0] = 'L';
+                        } else {
+                            perror("Error in reading from file!\n");
+                            exit(-1);
+                        }
+
+                        uint16_t temp = htons(read_ret);
+                        memcpy(buf + 1, &temp, sizeof(uint16_t));
+
+                        int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+                        if(send_status < 0) {
+                            perror("Error in send\n");
+                            exit(-1);
+                        }
+                        if(read_ret == 0)
+                            break;
+                    }
+                    close(get_fd);
+                }
+                else if(strcmp(cmd, "put") == 0){
+                    printf("still not implemented\n");
+                }
                 break;
             }
             case QUIT: {

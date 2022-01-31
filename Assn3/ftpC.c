@@ -23,6 +23,8 @@
 #define ERROR1 "500"
 #define ERROR2 "600"
 
+#define PORT 20000
+
 int main(int argc, char* argv[]) {
     // Creating the socket
 	int	sockfd ;
@@ -36,7 +38,22 @@ int main(int argc, char* argv[]) {
     char ip[100];
     char buf[BUFFER_SIZE];
     
-    int state = START;
+    // REMOVE THIS***
+    memset(&serv_addr, 0, sizeof(serv_addr)); 
+    serv_addr.sin_family	= AF_INET;
+    inet_aton(ip, &serv_addr.sin_addr);    // This will set the value
+    serv_addr.sin_port	= htons(PORT);
+
+    if ((connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) < 0) {
+        perror("Unable to connect to server\n");
+        exit(0);
+    }
+
+    int state = AUTHENTICATED;
+    // REMOVE THIS**
+
+    // TODO: uncomment this
+    // int state = START;
     while(state != QUIT) {
         printf("myFTP>");
         scanf(" %[^\n]", buf);
@@ -80,8 +97,8 @@ int main(int argc, char* argv[]) {
                     exit(0);
                 }
 
-                state = OPENED;
-                // state = AUTHENTICATED; // TODO- REMOVE THIS
+                // state = OPENED;
+                state = AUTHENTICATED; // TODO- REMOVE THIS
                 break;
             }
 
@@ -122,7 +139,7 @@ int main(int argc, char* argv[]) {
 
             case GOT_USER: {
                 // send password
-                int send_status = send(sockfd, buf, BUFFER_SIZE - 1, 0);
+                int send_status = send(sockfd, buf, BUFFER_SIZE, 0);
                 if(send_status < 0) {
                     perror("Error in send\n");
                     exit(-1);
@@ -154,12 +171,12 @@ int main(int argc, char* argv[]) {
 
             case AUTHENTICATED: {
                 // extract the first word/ command from buffer
-                char cmd[BUFFER_SIZE];
+                char cmd[BUFFER_SIZE + 1];
                 sscanf(buf, "%s", cmd);
 
                 // commands 4-10 are executed here
                 if(strcmp(cmd, "lcd")==0){
-                    char path[BUFFER_SIZE];
+                    char path[BUFFER_SIZE + 1];
                     int ret = sscanf(buf,"lcd %s", path);
                     printf("ret = %d, path = %s\n", ret, path);
                     if(ret < 1) {
@@ -169,7 +186,7 @@ int main(int argc, char* argv[]) {
                     }
                     if(chdir(path)==-1) {
                         // error
-                        perror("couldn\'t change diretory\n");
+                        perror("Couldn\'t change diretory\n");
                     }
                     break;
                 }
@@ -185,21 +202,87 @@ int main(int argc, char* argv[]) {
                     closedir(dir);
                     break;
                 }
+                else if(strcmp(cmd, "get") == 0) {
+                    // Extact data from command
+                    char remote_file[BUFFER_SIZE + 1], local_file[BUFFER_SIZE + 1];
+                    int check = sscanf(buf, "get %s %s", remote_file, local_file);
+                    if(check < 2) {
+                        printf("Invalid format for get!\n");
+                    }
 
+                    // open the local_file
+                    int get_fd = open(local_file, O_WRONLY | O_CREAT | O_TRUNC);
+                    if(get_fd < 0) {
+                        printf("Client can't open the file for writing!\n");
+                        break;
+                    }
 
-                int send_status = send(sockfd, buf, BUFFER_SIZE - 1, 0);
-                if(send_status < 0) {
-                    perror("Error in send\n");
-                    exit(-1);
-                }
+                    // send iff we can open local_file
+                    int send_status = send(sockfd, buf, BUFFER_SIZE, 0);
+                    if(send_status < 0) {
+                        perror("Error in send\n");
+                        exit(-1);
+                    }
 
-                if(strcmp(cmd, "dir") == 0) {
+                    // check if server can open remote file
                     bzero(buf, sizeof(buf));
                     int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
                     if(parse_status < 0) {
                         printf("Couldn't send file completely!\n");
                         exit(-1);
                     }
+                    
+                    // server can open remote file : receive block by block
+                    if(strcmp(buf, SUCCESS) == 0) {
+                        char flag = 'M';
+                        while(flag == 'M'){
+                            bzero(buf, sizeof(buf));
+                            int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
+                            if(parse_status < 0) {
+                                perror("Error in recv!\n");
+                                exit(-1);
+                            }
+
+                            flag = buf[0];
+
+                            // Assuming L contains no further data
+                            if(flag == 'L')
+                            {
+                                break;
+                            }
+                                
+                            uint16_t nbytes;
+                            memcpy(&nbytes, buf + 1, 2);
+                            
+                            uint16_t len = ntohs(nbytes);
+                            if(write(get_fd, buf + 3, len) < 0)
+                            {
+                                perror("can't write");
+                                exit(1);
+                            }
+                        }
+                        close(get_fd);
+                    } else if (strcmp(buf, ERROR1) == 0) {
+                        printf("Error 500, File doesnt exist or can't be opened on server side!\n");
+                    } 
+                    break;               
+                }
+
+                
+                int send_status = send(sockfd, buf, BUFFER_SIZE, 0);
+                if(send_status < 0) {
+                    perror("Error in send\n");
+                    exit(-1);
+                }
+
+                bzero(buf, sizeof(buf));
+                int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
+                if(parse_status < 0) {
+                    printf("Couldn't send file completely!\n");
+                    exit(-1);
+                }
+
+                if(strcmp(cmd, "dir") == 0) {
                     char *b = buf;
                     while(strlen(b) > 0)
                     {
@@ -208,28 +291,21 @@ int main(int argc, char* argv[]) {
                     }
                 }
                 else if(strcmp(cmd, "cd") == 0){
-                    bzero(buf, sizeof(buf));
-                    int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
-                    if(parse_status < 0) {
-                        printf("Couldn't send file completely!\n");
-                        exit(-1);
-                    }
-
                     if(strcmp(buf, SUCCESS) == 0) {
                         printf("Server dir changed successfully\n");
                     } else if (strcmp(buf, ERROR1) == 0) {
                         printf("Error 500, please try again!\n");
                     }
                 }
-                else if(strcmp(cmd, "lcd") == 0){
+                else if(strcmp(cmd, "put") == 0){
                     printf("still not implemented\n");
                 }
-                else if(strcmp(cmd, "cd") == 0){
+                else if(strcmp(cmd, "mput") == 0){
                     printf("still not implemented\n");
                 }
-                /* code
-                get all commands
-                */
+                else if(strcmp(cmd, "mget") == 0){
+                    printf("still not implemented\n");
+                }
                 break;
             }
             case QUIT: {
