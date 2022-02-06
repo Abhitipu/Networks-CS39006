@@ -237,7 +237,7 @@ int main(int argc, char* argv[]) {
         timer.tv_sec = 300;
         timer.tv_usec = 0;
 
-        int select_status = select(tcp_sockfd + 1, &myfd, 0, 0, &timer);
+        int select_status = select(tcp_sockfd + 1, &myfd, 0, 0, NULL);
 
         if(select_status < 0) {
             perror("Error in select\n");
@@ -256,8 +256,7 @@ int main(int argc, char* argv[]) {
             if(fork() == 0) {
                 // child: Handles the new tcp connection
                 // close(tcp_sockfd);
-                // state = OPENED;
-                state = AUTHENTICATED; // TODO - REMOVE THIS LINE
+                state = OPENED;
                 break;
             } else {
                 // parent
@@ -294,9 +293,8 @@ int main(int argc, char* argv[]) {
                 bzero(buf, sizeof(buf));
 
                 if(ret < 1) {
-                    // printf("len(buf) = %ld\n", strlen(buf));
                     printf("Incorrect command format!\n");
-                    printf("Expected format is: ?\n");
+                    printf("Expected format is: user <username>\n");
                     // incorrect command : return 600
                     strcpy(buf, ERROR2);
                 }
@@ -328,7 +326,7 @@ int main(int argc, char* argv[]) {
                 if(ret < 1) {
                     // printf("len(buf) = %ld\n", strlen(buf));
                     printf("Incorrect command format!\n");
-                    printf("Expected format is: ?\n");
+                    printf("Expected format is: pass <password>\n");
 
                     // incorrect command : return 600
                     strcpy(buf, ERROR2);
@@ -396,12 +394,12 @@ int main(int argc, char* argv[]) {
                     }
                     closedir(dir);
                 } else if(strcmp(cmd, "cd") == 0){
-                    char path[BUFFER_SIZE];
+                    char path[BUFFER_SIZE + 1];
                     int ret = sscanf(buf,"cd %s", path);
                     bzero(buf, sizeof(buf));
                     if(ret < 1) {
                         printf("Incorrect command format!\n");
-                        printf("Expected format is: cd {dirname}\n");
+                        printf("Expected format is: cd <dirname>\n");
                         // incorrect command : return 500
                         strcpy(buf, ERROR1);
                     }

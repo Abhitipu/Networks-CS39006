@@ -22,7 +22,6 @@
 #define ERROR2 "600"
 
 #define BUFFER_SIZE 1024
-#define PORT 20001
 
 // get remote_file local_file
 int receive_file(int sockfd, char* buf) {
@@ -32,6 +31,7 @@ int receive_file(int sockfd, char* buf) {
     int check = sscanf(buf, "get %s %s", remote_file, local_file);
     if(check < 2) {
         printf("Invalid format for get!\n");
+        printf("Expected format is: get <remote_file> <local_file>");
         return -1;
     }
 
@@ -101,6 +101,7 @@ int send_file(int sockfd, char* buf) {
     int check = sscanf(buf, "put %s %s", local_file, remote_file);
     if(check < 2) {
         printf("Invalid format for get!\n");
+        printf("Expected format is: get <local_file> <remote_file>");
         return -1;
     }
 
@@ -174,23 +175,8 @@ int main(int argc, char* argv[]) {
     char port[100];
     char ip[100];
     char buf[BUFFER_SIZE+1];
-    
-    // REMOVE THIS***
-    memset(&serv_addr, 0, sizeof(serv_addr)); 
-    serv_addr.sin_family	= AF_INET;
-    inet_aton(ip, &serv_addr.sin_addr);    // This will set the value
-    serv_addr.sin_port	= htons(PORT);
 
-    if ((connect(sockfd, (struct sockaddr *) &serv_addr, sizeof(serv_addr))) < 0) {
-        perror("Unable to connect to server\n");
-        exit(0);
-    }
-
-    int state = AUTHENTICATED;
-    // REMOVE THIS**
-
-    // TODO: uncomment this
-    // int state = START;
+    int state = START;
     while(state != QUIT) {
         printf("myFTP>");
         scanf(" %[^\n]", buf);
@@ -199,6 +185,22 @@ int main(int argc, char* argv[]) {
         // check for quit
         if(strcmp(buf, "quit") == 0) {
             state = QUIT;
+        } else if(strcmp(buf, "help") == 0) {
+            printf("Command format\n");
+            printf("1. open <ip> <port>\n");
+            printf("2. user <username>\n");
+            printf("3. pass <password>\n");
+            printf("4. cd <dirname>\n");
+            printf("5. lcd <dirname>\n");
+            printf("6. dir\n");
+            printf("7. get <remote_file> <local_file>\n");
+            printf("8. put <local_file> <remote_file>\n");
+            printf("9. mget <file1>,<file2>,<file3> ...\n");
+            printf("10. mput <file1>,<file2>,<file3> ...\n");
+            printf("11. quit\n");
+            printf("12. ldir (extra feature)\n");
+            printf("13. help (extra feature)\n");
+            continue;
         }
 
         switch (state) {           
@@ -217,7 +219,8 @@ int main(int argc, char* argv[]) {
                 if(ret < 2) {
                     printf("len(buf) = %ld\n", strlen(buf));
                     printf("Incorrect command format!\n");
-                    printf("Expected format is: ?\n");
+                    printf("Expected format is: open <ip> <port>\n");
+                    printf("Type help for assistance with command formats\n");
                     break;
                 }
 
@@ -234,8 +237,7 @@ int main(int argc, char* argv[]) {
                     exit(0);
                 }
 
-                // state = OPENED;
-                state = AUTHENTICATED; // TODO- REMOVE THIS
+                state = OPENED;
                 break;
             }
 
@@ -265,6 +267,7 @@ int main(int argc, char* argv[]) {
                     state = GOT_USER;
                 } else if (strcmp(buf, ERROR2) == 0) {
                     printf("Incorrect command sent!\n");
+                    printf("Type help for assistance with command formats\n");
                 } else if (strcmp(buf, ERROR1) == 0) {
                     printf("Username doesn't exist!\n");
                 } else {
@@ -294,6 +297,7 @@ int main(int argc, char* argv[]) {
                     state = AUTHENTICATED;
                 } else if (strcmp(buf, ERROR2) == 0) {
                     printf("Incorrect command sent!\n");
+                    printf("Type help for assistance with command formats\n");
                     state = OPENED;
                 } else if (strcmp(buf, ERROR1) == 0) {
                     printf("Password doesn't match!\n");
@@ -318,12 +322,12 @@ int main(int argc, char* argv[]) {
                     printf("ret = %d, path = %s\n", ret, path);
                     if(ret < 1) {
                         printf("Incorrect command format!\n");
-                        printf("Expected format is: lcd {dirname}\n");
+                        printf("Expected format is: lcd <dirname>\n");
                         break;
                     }
                     if(chdir(path)==-1) {
                         // error
-                        perror("Couldn\'t change diretory\n");
+                        perror("Couldn't change diretory\n");
                     }
                 }
                 else if(strcmp(cmd, "ldir")==0){
@@ -333,6 +337,10 @@ int main(int argc, char* argv[]) {
                     char * file_name;
                     dir = opendir(".");
                     while ((dp=readdir(dir)) != NULL) {
+                        if ( strcmp(dp->d_name, ".")==0 || strcmp(dp->d_name, "..")==0 )
+                        {
+                            // do nothing (straight logic)
+                        }
                         printf("%s\n", dp->d_name);
                     }
                     closedir(dir);
