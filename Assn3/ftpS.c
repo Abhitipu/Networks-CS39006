@@ -23,8 +23,9 @@
 #define ERROR1 "500"
 #define ERROR2 "600"
 
-#define BUFFER_SIZE 101
-#define PORT 20000
+#define BUFFER_SIZE 1024
+#define PORT 20001
+
 int mycat(char *buf, int bufsize, char *buf2)
 {
     strcat(buf+bufsize, buf2);
@@ -67,6 +68,121 @@ int password_exists(char* username, char* password) {
     fclose(fp);
     return 0;
 }
+
+// get
+void send_file(int tcp_newsockfd, char* buf) {
+    // try to open remote_file
+    char remote_file[BUFFER_SIZE + 1], local_file[BUFFER_SIZE + 1];
+    sscanf(buf, "get %s %s", remote_file, local_file);
+    
+    int get_fd = open(remote_file, O_RDONLY);
+    if(get_fd < 0) {
+        printf("Can't open file from server side!\n");
+        bzero(buf, sizeof(buf));
+        strcpy(buf, ERROR1);
+        int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+        if(send_status < 0) {
+            perror("Error in send\n");
+            exit(-1);
+        }
+        return;
+    }
+    bzero(buf, sizeof(buf));
+    strcpy(buf, SUCCESS);
+    int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+    if(send_status < 0) {
+        perror("Error in send\n");
+        exit(-1);
+    }
+
+    // send the file block by block
+    ssize_t read_ret;
+    
+    while(1) {
+        bzero(buf, sizeof(buf));
+        ssize_t read_ret = read(get_fd, buf + 3, BUFFER_SIZE-3);
+        if(read_ret > 0) {
+            buf[0] = 'M';
+        } else if(read_ret == 0){
+            buf[0] = 'L';
+        } else {
+            perror("Error in reading from file!\n");
+            exit(-1);
+        }
+
+        uint16_t temp = htons(read_ret);
+        memcpy(buf + 1, &temp, sizeof(uint16_t));
+
+        int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+        if(send_status < 0) {
+            perror("Error in send\n");
+            exit(-1);
+        }
+        if(read_ret == 0)
+            break;
+    }
+    close(get_fd);
+    return;
+}
+
+// put local_file remote_file
+void receive_file(int sockfd, char* buf) {
+    char remote_file[BUFFER_SIZE + 1], local_file[BUFFER_SIZE + 1];
+    sscanf(buf, "put %s %s", local_file, remote_file);
+    
+    int put_fd = open(remote_file, O_CREAT | O_TRUNC | O_WRONLY);
+    if(put_fd < 0) {
+        printf("Can't open file from server side!\n");
+        bzero(buf, sizeof(buf));
+        strcpy(buf, ERROR1);
+        int send_status = send(sockfd, buf, BUFFER_SIZE, 0);
+        if(send_status < 0) {
+            perror("Error in send\n");
+            exit(-1);
+        }
+        return ;
+    }
+    bzero(buf, sizeof(buf));
+    strcpy(buf, SUCCESS);
+    int send_status = send(sockfd, buf, BUFFER_SIZE, 0);
+    if(send_status < 0) {
+        perror("Error in send\n");
+        exit(-1);
+    }
+    // start file receive
+
+    char flag = 'M';
+    while(flag == 'M'){
+        bzero(buf, sizeof(buf));
+        int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
+        if(parse_status < 0) {
+            perror("Error in recv!\n");
+            exit(-1);
+        }
+
+        flag = buf[0];
+
+        // Assuming L contains no further data
+        if(flag == 'L')
+        {
+            break;
+        }
+            
+        uint16_t nbytes;
+        memcpy(&nbytes, buf + 1, 2);
+        
+        uint16_t len = ntohs(nbytes);
+        if(write(put_fd, buf + 3, len) < 0)
+        {
+            perror("can't write");
+            exit(1);
+        }
+    }
+    close(put_fd);
+
+    return;
+}
+
 
 int main(int argc, char* argv[]) { 
 	int	tcp_sockfd, tcp_newsockfd;
@@ -244,7 +360,7 @@ int main(int argc, char* argv[]) {
             }
             case AUTHENTICATED: {
                 // extract the first word/ command from buffer
-                char cmd[BUFFER_SIZE];
+                char cmd[BUFFER_SIZE + 1];
                 sscanf(buf, "%s", cmd);
                 printf("The command received is %s\n", cmd);
                 if(strcmp(cmd, "dir") == 0) {
@@ -307,59 +423,10 @@ int main(int argc, char* argv[]) {
 
                 }
                 else if(strcmp(cmd, "get") == 0){
-                    // try to open remote_file
-                    char remote_file[BUFFER_SIZE + 1], local_file[BUFFER_SIZE + 1];
-                    sscanf(buf, "get %s %s", remote_file, local_file);
-                    
-                    int get_fd = open(remote_file, O_RDONLY);
-                    if(get_fd < 0) {
-                        printf("Can't open file from server side!\n");
-                        bzero(buf, sizeof(buf));
-                        strcpy(buf, ERROR1);
-                        int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
-                        if(send_status < 0) {
-                            perror("Error in send\n");
-                            exit(-1);
-                        }
-                    }
-                    bzero(buf, sizeof(buf));
-                    strcpy(buf, SUCCESS);
-                    int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
-                    if(send_status < 0) {
-                        perror("Error in send\n");
-                        exit(-1);
-                    }
-
-                    // send the file block by block
-                    ssize_t read_ret;
-                    
-                    while(1) {
-                        bzero(buf, sizeof(buf));
-                        ssize_t read_ret = read(get_fd, buf + 3, BUFFER_SIZE-3);
-                        if(read_ret > 0) {
-                            buf[0] = 'M';
-                        } else if(read_ret == 0){
-                            buf[0] = 'L';
-                        } else {
-                            perror("Error in reading from file!\n");
-                            exit(-1);
-                        }
-
-                        uint16_t temp = htons(read_ret);
-                        memcpy(buf + 1, &temp, sizeof(uint16_t));
-
-                        int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
-                        if(send_status < 0) {
-                            perror("Error in send\n");
-                            exit(-1);
-                        }
-                        if(read_ret == 0)
-                            break;
-                    }
-                    close(get_fd);
+                    send_file(tcp_newsockfd, buf);
                 }
                 else if(strcmp(cmd, "put") == 0){
-                    printf("still not implemented\n");
+                    receive_file(tcp_newsockfd, buf);
                 }
                 break;
             }
