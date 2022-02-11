@@ -1,4 +1,4 @@
-/** THE UDP SERVER**/
+/**THE TCP SERVER**/
 #include <stdio.h> 
 #include <stdlib.h> 
 #include <unistd.h> 
@@ -13,28 +13,33 @@
 #include <netinet/in.h> 
 #include <netdb.h>
 
+// Client fsm States 
 #define START 0
 #define OPENED 1
 #define GOT_USER 2
 #define AUTHENTICATED 3
 #define QUIT 4
 
+// Status Codes
 #define SUCCESS "200"
 #define ERROR1 "500"
 #define ERROR2 "600"
 
 #define BUFFER_SIZE 200
-#define PORT 20006
+#define PORT 20001
 
 int Min(int a, int b) {
     return (a < b) ? a : b;
 }
 
+// Appends buf2 string at buf+bufsize, and return new len of strings (including 1 null at the end)
 int mycat(char *buf, int bufsize, char *buf2)
 {
     strcat(buf+bufsize, buf2);
     return bufsize + strlen(buf2) + 1;
 }
+
+// Check if the user exists in the input file or not
 int user_exists(char* username)
 {
     FILE *fp;
@@ -59,6 +64,7 @@ int user_exists(char* username)
 
 }
 
+// Check if the user exists in the input file or not
 int password_exists(char* username, char* password) {
     FILE *fp;
     int c;
@@ -81,17 +87,19 @@ int password_exists(char* username, char* password) {
     return 0;
 }
 
-// get
+// the wrapper for sending blocks of text from the server to client
 void send_file(int tcp_newsockfd, char* buf) {
     // try to open remote_file
     char remote_file[BUFFER_SIZE + 1], local_file[BUFFER_SIZE + 1];
     sscanf(buf, "get %s %s", remote_file, local_file);
     
+    // check if server can open file
     int get_fd = open(remote_file, O_RDONLY);
     if(get_fd < 0) {
         printf("Can't open file from server side!\n");
         bzero(buf, sizeof(buf));
         strcpy(buf, ERROR1);
+        // Sending 500 if it cant
         int send_status = send(tcp_newsockfd, buf, strlen(buf) + 1, 0);
         if(send_status < 0) {
             perror("Error in send\n");
@@ -107,6 +115,7 @@ void send_file(int tcp_newsockfd, char* buf) {
         exit(-1);
     }
 
+    // Sending the file once it ensures that the server can read from it
     while(1) {
         bzero(buf, sizeof(buf));
         int read_ret = read(get_fd, buf + 3, BUFFER_SIZE-3);
@@ -135,11 +144,12 @@ void send_file(int tcp_newsockfd, char* buf) {
     return;
 }
 
-// put local_file remote_file
+// the wrapper for sending blocks of text from the server to client
 void receive_file(int sockfd, char* buf) {
     char remote_file[BUFFER_SIZE + 1], local_file[BUFFER_SIZE + 1];
     sscanf(buf, "put %s %s", local_file, remote_file);
     
+    // check if the server can open the file
     int put_fd = open(remote_file, O_CREAT | O_TRUNC | O_WRONLY);
     if(put_fd < 0) {
         printf("Can't open file from server side!\n");
@@ -159,8 +169,8 @@ void receive_file(int sockfd, char* buf) {
         perror("Error in send\n");
         exit(-1);
     }
-    // start file receive
 
+    // start file receive
     char flag = 'M';
     while(flag == 'M'){
         bzero(buf, sizeof(buf));
@@ -171,18 +181,12 @@ void receive_file(int sockfd, char* buf) {
         }
 
         flag = buf[0];
-
-        // Assuming L contains no further data
-        if(flag == 'L')
-        {
-            break;
-        }
             
         uint16_t nbytes;
         memcpy(&nbytes, buf + 1, 2);
         uint16_t len = ntohs(nbytes);
-        // 250 data count, and buffer 100
-        
+
+        // Receiving the data block by block         
         for(uint16_t cur = 0; cur < len; cur += parse_status) {
             bzero(buf, sizeof(buf));
             parse_status = recv(sockfd, buf, Min(BUFFER_SIZE, len - cur), 0);
@@ -190,19 +194,21 @@ void receive_file(int sockfd, char* buf) {
                 perror("Error in recv!\n");
                 exit(-1);
             }
-            // printf("Recv(%d) %s\n", parse_status, buf);
             if(write(put_fd, buf, parse_status) < 0)
             {
                 perror("can't write");
                 exit(1);
             }
+        }
+
+        if(flag == 'L')
+        {
+            break;
         }        
     }
     close(put_fd);
-
     return;
 }
-
 
 int main(int argc, char* argv[]) { 
 	int	tcp_sockfd, tcp_newsockfd;
@@ -345,7 +351,6 @@ int main(int argc, char* argv[]) {
                 int ret = sscanf(buf,"pass %s", password);
                 bzero(buf, sizeof(buf));
                 if(ret < 1) {
-                    // printf("len(buf) = %ld\n", strlen(buf));
                     printf("Incorrect command format!\n");
                     printf("Expected format is: pass <password>\n");
 
@@ -380,7 +385,7 @@ int main(int argc, char* argv[]) {
                 // extract the first word/ command from buffer
                 char cmd[BUFFER_SIZE + 1];
                 sscanf(buf, "%s", cmd);
-                printf("The command received is %s\n", cmd);
+                // printf("The command received is %s\n", cmd);
                 if(strcmp(cmd, "dir") == 0) {
                     DIR *dir;
                     struct dirent *dp;
@@ -389,32 +394,47 @@ int main(int argc, char* argv[]) {
                     bzero(buf, sizeof(buf));
                     int cur = 0;
                     while ((dp=readdir(dir)) != NULL) {
-                        // "Anndas\0aNani\0\0"
-                        // printf("debug: %s\n", dp->d_name);
                         if ( strcmp(dp->d_name, ".")==0 || strcmp(dp->d_name, "..")==0 )
                         {
                             // do nothing (straight logic)
-                        } else {
-                            cur = mycat(buf, cur, dp->d_name);
+                        } else 
+                        {
+                            int check = strlen(dp->d_name);
+                            // check the length
+                            if(cur + check + 2 < BUFFER_SIZE) {
+                                cur = mycat(buf, cur, dp->d_name);
+                            } else {
+                                // send
+                                int dir_len = 0;
+                                char *b = buf;
+                                while(strlen(b) > 0)
+                                {
+                                    // printf("%s\n", b);
+                                    dir_len+= strlen(b) + 1;
+                                    b = b + strlen(b) + 1;
+                                }
+                                // bzero(buf, sizeof(buf));
+                                // sending empty string at the end
+                                // need to calculate actual size
+                                int send_status = send(tcp_newsockfd, buf, dir_len, 0);
+                                if(send_status < 0) {
+                                    perror("Error in send\n");
+                                    exit(-1);
+                                }
+                                bzero(buf, sizeof(buf));
+                                cur = 0;
+                                cur = mycat(buf, cur, dp->d_name);
+                            }
                         }
                     }
-                    int dir_len = 0;
-                    char *b = buf;
-                    while(strlen(b) > 0)
-                    {
-                        printf("%s\n", b);
-                        dir_len+= strlen(b) + 1;
-                        b = b + strlen(b) + 1;
-                    }
-                    // bzero(buf, sizeof(buf));
-                    // sending empty string at the end
-                    // need to calculate actual size
-                    int send_status = send(tcp_newsockfd, buf, dir_len + 1, 0);
+                    
+                    int send_status = send(tcp_newsockfd, buf, cur + 1, 0);
                     if(send_status < 0) {
                         perror("Error in send\n");
                         exit(-1);
                     }
                     closedir(dir);
+
                 } else if(strcmp(cmd, "cd") == 0){
                     char path[BUFFER_SIZE + 1];
                     int ret = sscanf(buf,"cd %s", path);

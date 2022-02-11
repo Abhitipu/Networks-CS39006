@@ -1,4 +1,4 @@
-a.out: ftpC.c
+client: ftpC.c
 	cc -o client ftpC.c
 	./client
 
@@ -8,4 +8,3 @@ server: ftpS.c
 
 clean:
 	rm -rf client server test temp.txt check.txt check.c temp/*
-	clear

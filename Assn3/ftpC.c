@@ -11,18 +11,22 @@
 #include <fcntl.h>
 #include <dirent.h>
 
+// Client fsm States 
 #define START 0
 #define OPENED 1
 #define GOT_USER 2
 #define AUTHENTICATED 3
 #define QUIT 4
 
+// Status Codes
 #define SUCCESS "200"
 #define ERROR1 "500"
 #define ERROR2 "600"
 
+// Buffer size
 #define BUFFER_SIZE 200
 
+// Custom Minimum function
 int Min(int a, int b) {
     return (a < b) ? a : b;
 }
@@ -35,7 +39,7 @@ int receive_file(int sockfd, char* buf) {
     int check = sscanf(buf, "get %s %s", remote_file, local_file);
     if(check < 2) {
         printf("Invalid format for get!\n");
-        printf("Expected format is: get <remote_file> <local_file>");
+        printf("Expected format is: get <remote_file> <local_file>\n");
         return -1;
     }
 
@@ -73,12 +77,7 @@ int receive_file(int sockfd, char* buf) {
             }
 
             flag = buf[0];
-
-            if(flag == 'L')
-            {
-                break;
-            }
-                
+    
             uint16_t nbytes;
             memcpy(&nbytes, buf + 1, 2);
             uint16_t len = ntohs(nbytes);
@@ -97,6 +96,11 @@ int receive_file(int sockfd, char* buf) {
                     exit(1);
                 }
             }
+            if(flag == 'L')
+            {
+                // Last block encountered, exit
+                break;
+            }
         }
         close(get_fd);
         return 0;
@@ -113,7 +117,7 @@ int send_file(int sockfd, char* buf) {
     int check = sscanf(buf, "put %s %s", local_file, remote_file);
     if(check < 2) {
         printf("Invalid format for get!\n");
-        printf("Expected format is: get <local_file> <remote_file>");
+        printf("Expected format is: get <local_file> <remote_file>\n");
         return -1;
     }
 
@@ -258,7 +262,6 @@ int main(int argc, char* argv[]) {
 
             case OPENED: {
                 // send username
-                // printf("Inside opened!\n");
 
                 int send_status = send(sockfd, buf, strlen(buf) + 1, 0);
                 if(send_status < 0) {
@@ -355,8 +358,8 @@ int main(int argc, char* argv[]) {
                         if ( strcmp(dp->d_name, ".")==0 || strcmp(dp->d_name, "..")==0 )
                         {
                             // do nothing (straight logic)
-                        }
-                        printf("%s\n", dp->d_name);
+                        } else
+                            printf("%s\n", dp->d_name);
                     }
                     closedir(dir);
                 }
@@ -413,18 +416,29 @@ int main(int argc, char* argv[]) {
                         exit(-1);
                     }
 
-                    bzero(buf, sizeof(buf));
-                    int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
-                    if(parse_status < 0) {
-                        perror("Error in recv!\n");
-                        exit(-1);
-                    }
-                    char *b = buf;
-                    while(strlen(b) > 0)
-                    {
-                        printf("%s\n", b);
-                        b = b + strlen(b) + 1;
-                    }
+                    int flag = 1;
+                    do {
+                        bzero(buf, sizeof(buf));
+                        int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
+                        if(parse_status < 0) {
+                            perror("Error in recv!\n");
+                            exit(-1);
+                        }
+                        if(parse_status == 0)
+                        {
+                            break;
+                        }
+                        if(buf[parse_status-1] == '\0' && buf[parse_status-2] == '\0')
+                            flag = 0;
+                            
+                        char *b = buf;
+                        while(strlen(b) > 0)
+                        {
+                            printf("%s\n", b);
+                            b = b + strlen(b) + 1;
+                        }
+                        
+                    } while(flag == 1);
                 }
                 else if(strcmp(cmd, "cd") == 0){
                     int send_status = send(sockfd, buf, strlen(buf) + 1, 0);
@@ -446,6 +460,7 @@ int main(int argc, char* argv[]) {
                     }
                 } else {
                     printf("Invalid command entered!\n");
+                    printf("Type help for assistance with command formats\n");
                 }
                 
                 break;
