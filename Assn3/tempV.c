@@ -55,7 +55,9 @@ int receive_file(int sockfd, char* buf) {
 
     // check if server can open remote file
     bzero(buf, sizeof(buf));
-    int parse_status = recv(sockfd, buf, 4, 0);
+    int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
+    printf("BUffer: %s\n", buf);
+    // printf("Read: %d\n", parse_status);
     if(parse_status < 0) {
         printf("Couldn't send file completely!\n");
         exit(-1);
@@ -71,9 +73,11 @@ int receive_file(int sockfd, char* buf) {
                 perror("Error in recv!\n");
                 exit(-1);
             }
+            // printf("Read: %d\n", parse_status);
 
             flag = buf[0];
 
+            // Assuming L contains no further data
             if(flag == 'L')
             {
                 break;
@@ -83,6 +87,8 @@ int receive_file(int sockfd, char* buf) {
             memcpy(&nbytes, buf + 1, 2);
             uint16_t len = ntohs(nbytes);
 
+            printf("Block %s,\n len(%d)\n", buf, len);
+            // 
             for(uint16_t cur = 0; cur < len; cur += parse_status) {
                 bzero(buf, sizeof(buf));
                 parse_status = recv(sockfd, buf, Min(BUFFER_SIZE, len - cur), 0);
@@ -97,6 +103,8 @@ int receive_file(int sockfd, char* buf) {
                     exit(1);
                 }
             }
+            //
+            
         }
         close(get_fd);
         return 0;

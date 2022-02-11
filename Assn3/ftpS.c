@@ -24,7 +24,11 @@
 #define ERROR2 "600"
 
 #define BUFFER_SIZE 200
-#define PORT 20003
+#define PORT 20006
+
+int Min(int a, int b) {
+    return (a < b) ? a : b;
+}
 
 int mycat(char *buf, int bufsize, char *buf2)
 {
@@ -103,12 +107,9 @@ void send_file(int tcp_newsockfd, char* buf) {
         exit(-1);
     }
 
-    // send the file block by block
-    ssize_t read_ret;
-    
     while(1) {
         bzero(buf, sizeof(buf));
-        ssize_t read_ret = read(get_fd, buf + 3, BUFFER_SIZE-3);
+        int read_ret = read(get_fd, buf + 3, BUFFER_SIZE-3);
         if(read_ret > 0) {
             buf[0] = 'M';
         } else if(read_ret == 0){
@@ -121,7 +122,8 @@ void send_file(int tcp_newsockfd, char* buf) {
         uint16_t temp = htons(read_ret);
         memcpy(buf + 1, &temp, sizeof(uint16_t));
 
-        int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+        int send_status = send(tcp_newsockfd, buf, read_ret + 3, 0);
+        printf("Sending(%d) %s\n", read_ret, buf + 3);
         if(send_status < 0) {
             perror("Error in send\n");
             exit(-1);
@@ -148,7 +150,7 @@ void receive_file(int sockfd, char* buf) {
             perror("Error in send\n");
             exit(-1);
         }
-        return ;
+        return;
     }
     bzero(buf, sizeof(buf));
     strcpy(buf, SUCCESS);
@@ -162,7 +164,7 @@ void receive_file(int sockfd, char* buf) {
     char flag = 'M';
     while(flag == 'M'){
         bzero(buf, sizeof(buf));
-        int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
+        int parse_status = recv(sockfd, buf, 3, 0);
         if(parse_status < 0) {
             perror("Error in recv!\n");
             exit(-1);
@@ -179,18 +181,11 @@ void receive_file(int sockfd, char* buf) {
         uint16_t nbytes;
         memcpy(&nbytes, buf + 1, 2);
         uint16_t len = ntohs(nbytes);
+        // 250 data count, and buffer 100
         
-        printf("Recv(%d): %s\n", parse_status, buf+3);
-        // check len
-        if(write(put_fd, buf + 3, parse_status - 3) < 0)
-        {
-            perror("can't write");
-            exit(1);
-        }
-
-        for(uint16_t cur = parse_status - 3; cur < len; cur += parse_status) {
+        for(uint16_t cur = 0; cur < len; cur += parse_status) {
             bzero(buf, sizeof(buf));
-            parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
+            parse_status = recv(sockfd, buf, Min(BUFFER_SIZE, len - cur), 0);
             if(parse_status < 0) {
                 perror("Error in recv!\n");
                 exit(-1);
@@ -380,7 +375,6 @@ int main(int argc, char* argv[]) {
                 }
 
                 break;
-                
             }
             case AUTHENTICATED: {
                 // extract the first word/ command from buffer
