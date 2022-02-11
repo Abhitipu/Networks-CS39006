@@ -90,7 +90,7 @@ int receive_file(int sockfd, char* buf) {
                     perror("Error in recv!\n");
                     exit(-1);
                 }
-                printf("Recv(%d) %s\n", parse_status, buf);
+                // printf("Recv(%d) %s\n", parse_status, buf);
                 if(write(get_fd, buf, parse_status) < 0)
                 {
                     perror("can't write");
@@ -159,7 +159,7 @@ int send_file(int sockfd, char* buf) {
             uint16_t temp = htons(read_ret);
             memcpy(buf + 1, &temp, sizeof(uint16_t));
             
-            printf("Sent(%ld): %c %s\n", read_ret+3, buf[0], buf + 3);
+            // printf("Sent(%ld): %c %s\n", read_ret+3, buf[0], buf + 3);
             int send_status = send(sockfd, buf, read_ret+3, 0);
             if(send_status < 0) {
                 perror("Error in send\n");
@@ -194,7 +194,7 @@ int main(int argc, char* argv[]) {
     while(state != QUIT) {
         printf("myFTP>");
         scanf(" %[^\n]", buf);
-        printf("Got : %s\n", buf);
+        // printf("Got : %s\n", buf);
 
         // check for quit
         if(strcmp(buf, "quit") == 0) {
@@ -227,11 +227,11 @@ int main(int argc, char* argv[]) {
                 int ret = sscanf(buf,"open %s %s", ip, port);
                 
                 // printf("ret = %d\n", ret);
-                printf("Ip : %s\n", ip);
-                printf("Port : %s\n", port);
+                // printf("Ip : %s\n", ip);
+                // printf("Port : %s\n", port);
 
                 if(ret < 2) {
-                    printf("len(buf) = %ld\n", strlen(buf));
+                    // printf("len(buf) = %ld\n", strlen(buf));
                     printf("Incorrect command format!\n");
                     printf("Expected format is: open <ip> <port>\n");
                     printf("Type help for assistance with command formats\n");
@@ -258,7 +258,7 @@ int main(int argc, char* argv[]) {
 
             case OPENED: {
                 // send username
-                printf("Inside opened!\n");
+                // printf("Inside opened!\n");
 
                 int send_status = send(sockfd, buf, strlen(buf) + 1, 0);
                 if(send_status < 0) {
@@ -266,16 +266,16 @@ int main(int argc, char* argv[]) {
                     exit(-1);
                 }
 
-                printf("Sent to server\n");
+                // printf("Sent to server\n");
 
                 bzero(buf, sizeof(buf));
-                int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
+                int parse_status = recv(sockfd, buf, 4, 0);
                 if(parse_status < 0) {
                     printf("Couldn't send file completely!\n");
                     exit(-1);
                 }
 
-                printf("Received from server\n");
+                // printf("Received from server\n");
 
                 if(strcmp(buf, SUCCESS) == 0) {
                     printf("Matched username\n");
@@ -301,7 +301,7 @@ int main(int argc, char* argv[]) {
                 }
 
                 bzero(buf, sizeof(buf));
-                int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
+                int parse_status = recv(sockfd, buf, 4, 0);
                 if(parse_status < 0) {
                     printf("Couldn't send file completely!\n");
                     exit(-1);
@@ -334,7 +334,7 @@ int main(int argc, char* argv[]) {
                 if(strcmp(cmd, "lcd")==0){
                     char path[BUFFER_SIZE + 1];
                     int ret = sscanf(buf,"lcd %s", path);
-                    printf("ret = %d, path = %s\n", ret, path);
+                    // printf("ret = %d, path = %s\n", ret, path);
                     if(ret < 1) {
                         printf("Incorrect command format!\n");
                         printf("Expected format is: lcd <dirname>\n");
@@ -378,7 +378,7 @@ int main(int argc, char* argv[]) {
                         char temp[BUFFER_SIZE + 1];
                         bzero(temp, sizeof(temp));
                         sprintf(temp, "put %s %s", filename, filename);
-                        printf("%s\n", temp);
+                        // printf("%s\n", temp);
                         int status = send_file(sockfd, temp);
                         if(status < 0)
                             break;
@@ -398,7 +398,7 @@ int main(int argc, char* argv[]) {
                         char temp[BUFFER_SIZE + 1];
                         bzero(temp, sizeof(temp));
                         sprintf(temp, "get %s %s", filename, filename);
-                        printf("%s\n", temp);
+                        // printf("%s\n", temp);
                         int status = receive_file(sockfd, temp);
                         if(status < 0)
                             break;
@@ -434,7 +434,7 @@ int main(int argc, char* argv[]) {
                     }
 
                     bzero(buf, sizeof(buf));
-                    int parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
+                    int parse_status = recv(sockfd, buf, 4, 0);
                     if(parse_status < 0) {
                         perror("Error in recv!\n");
                         exit(-1);

@@ -123,7 +123,7 @@ void send_file(int tcp_newsockfd, char* buf) {
         memcpy(buf + 1, &temp, sizeof(uint16_t));
 
         int send_status = send(tcp_newsockfd, buf, read_ret + 3, 0);
-        printf("Sending(%d) %s\n", read_ret, buf + 3);
+        // printf("Sending(%d) %s\n", read_ret, buf + 3);
         if(send_status < 0) {
             perror("Error in send\n");
             exit(-1);
@@ -190,7 +190,7 @@ void receive_file(int sockfd, char* buf) {
                 perror("Error in recv!\n");
                 exit(-1);
             }
-            printf("Recv(%d) %s\n", parse_status, buf);
+            // printf("Recv(%d) %s\n", parse_status, buf);
             if(write(put_fd, buf, parse_status) < 0)
             {
                 perror("can't write");
@@ -390,7 +390,7 @@ int main(int argc, char* argv[]) {
                     int cur = 0;
                     while ((dp=readdir(dir)) != NULL) {
                         // "Anndas\0aNani\0\0"
-                        printf("debug: %s\n", dp->d_name);
+                        // printf("debug: %s\n", dp->d_name);
                         if ( strcmp(dp->d_name, ".")==0 || strcmp(dp->d_name, "..")==0 )
                         {
                             // do nothing (straight logic)
@@ -452,6 +452,7 @@ int main(int argc, char* argv[]) {
             }
             case QUIT: {
                 // Now we will close it
+                printf("TCP Connection from %s:%d is closed!\n",inet_ntoa(tcp_cliaddr.sin_addr), ntohs(tcp_cliaddr.sin_port));
                 close(tcp_sockfd);
                 close(tcp_newsockfd);
                 break;
