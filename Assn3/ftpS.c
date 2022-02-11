@@ -23,8 +23,8 @@
 #define ERROR1 "500"
 #define ERROR2 "600"
 
-#define BUFFER_SIZE 1024
-#define PORT 20001
+#define BUFFER_SIZE 200
+#define PORT 20003
 
 int mycat(char *buf, int bufsize, char *buf2)
 {
@@ -36,6 +36,10 @@ int user_exists(char* username)
     FILE *fp;
     int c;
     fp = fopen("user.txt","r");
+    if (fp == NULL) {
+		perror("fopen: ");
+		return 0;
+	}
     char buf1[100] , buf2[100];
     while(fscanf(fp, "%s %s", buf1, buf2) > 0)
     {
@@ -55,6 +59,10 @@ int password_exists(char* username, char* password) {
     FILE *fp;
     int c;
     fp = fopen("user.txt","r");
+    if (fp == NULL) {
+		perror("fopen: ");
+		return 0;
+	}
     char buf1[100] , buf2[100];
     while(fscanf(fp, "%s %s", buf1, buf2) > 0)
     {
@@ -80,7 +88,7 @@ void send_file(int tcp_newsockfd, char* buf) {
         printf("Can't open file from server side!\n");
         bzero(buf, sizeof(buf));
         strcpy(buf, ERROR1);
-        int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+        int send_status = send(tcp_newsockfd, buf, strlen(buf) + 1, 0);
         if(send_status < 0) {
             perror("Error in send\n");
             exit(-1);
@@ -89,7 +97,7 @@ void send_file(int tcp_newsockfd, char* buf) {
     }
     bzero(buf, sizeof(buf));
     strcpy(buf, SUCCESS);
-    int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+    int send_status = send(tcp_newsockfd, buf, strlen(buf) + 1, 0);
     if(send_status < 0) {
         perror("Error in send\n");
         exit(-1);
@@ -135,7 +143,7 @@ void receive_file(int sockfd, char* buf) {
         printf("Can't open file from server side!\n");
         bzero(buf, sizeof(buf));
         strcpy(buf, ERROR1);
-        int send_status = send(sockfd, buf, BUFFER_SIZE, 0);
+        int send_status = send(sockfd, buf, strlen(buf) + 1, 0);
         if(send_status < 0) {
             perror("Error in send\n");
             exit(-1);
@@ -144,7 +152,7 @@ void receive_file(int sockfd, char* buf) {
     }
     bzero(buf, sizeof(buf));
     strcpy(buf, SUCCESS);
-    int send_status = send(sockfd, buf, BUFFER_SIZE, 0);
+    int send_status = send(sockfd, buf, strlen(buf) + 1, 0);
     if(send_status < 0) {
         perror("Error in send\n");
         exit(-1);
@@ -170,13 +178,30 @@ void receive_file(int sockfd, char* buf) {
             
         uint16_t nbytes;
         memcpy(&nbytes, buf + 1, 2);
-        
         uint16_t len = ntohs(nbytes);
-        if(write(put_fd, buf + 3, len) < 0)
+        
+        printf("Recv(%d): %s\n", parse_status, buf+3);
+        // check len
+        if(write(put_fd, buf + 3, parse_status - 3) < 0)
         {
             perror("can't write");
             exit(1);
         }
+
+        for(uint16_t cur = parse_status - 3; cur < len; cur += parse_status) {
+            bzero(buf, sizeof(buf));
+            parse_status = recv(sockfd, buf, BUFFER_SIZE, 0);
+            if(parse_status < 0) {
+                perror("Error in recv!\n");
+                exit(-1);
+            }
+            printf("Recv(%d) %s\n", parse_status, buf);
+            if(write(put_fd, buf, parse_status) < 0)
+            {
+                perror("can't write");
+                exit(1);
+            }
+        }        
     }
     close(put_fd);
 
@@ -260,6 +285,7 @@ int main(int argc, char* argv[]) {
                 break;
             } else {
                 // parent
+                
             }
         }
 
@@ -311,7 +337,7 @@ int main(int argc, char* argv[]) {
                         strcpy(buf, ERROR1);
                     }
                 }
-                int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+                int send_status = send(tcp_newsockfd, buf, strlen(buf) + 1, 0);
                 if(send_status < 0) {
                     perror("Error in send\n");
                     exit(-1);
@@ -347,7 +373,7 @@ int main(int argc, char* argv[]) {
                     }
                 }
 
-                int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+                int send_status = send(tcp_newsockfd, buf, strlen(buf) + 1, 0);
                 if(send_status < 0) {
                     perror("Error in send\n");
                     exit(-1);
@@ -378,16 +404,18 @@ int main(int argc, char* argv[]) {
                             cur = mycat(buf, cur, dp->d_name);
                         }
                     }
-
+                    int dir_len = 0;
                     char *b = buf;
                     while(strlen(b) > 0)
                     {
                         printf("%s\n", b);
+                        dir_len+= strlen(b) + 1;
                         b = b + strlen(b) + 1;
                     }
                     // bzero(buf, sizeof(buf));
                     // sending empty string at the end
-                    int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+                    // need to calculate actual size
+                    int send_status = send(tcp_newsockfd, buf, dir_len + 1, 0);
                     if(send_status < 0) {
                         perror("Error in send\n");
                         exit(-1);
@@ -413,7 +441,7 @@ int main(int argc, char* argv[]) {
                             strcpy(buf, SUCCESS);
                         }
                     }
-                    int send_status = send(tcp_newsockfd, buf, BUFFER_SIZE, 0);
+                    int send_status = send(tcp_newsockfd, buf, strlen(buf) + 1, 0);
                     if(send_status < 0) {
                         perror("Error in send\n");
                         exit(-1);

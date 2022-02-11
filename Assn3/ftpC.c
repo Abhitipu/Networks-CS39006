@@ -21,7 +21,7 @@
 #define ERROR1 "500"
 #define ERROR2 "600"
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 200
 
 // get remote_file local_file
 int receive_file(int sockfd, char* buf) {
@@ -42,8 +42,8 @@ int receive_file(int sockfd, char* buf) {
         return -1;
     }
 
-    // send iff we can open local_file
-    int send_status = send(sockfd, buf, BUFFER_SIZE, 0);
+    // send iff we can open local_file (command)
+    int send_status = send(sockfd, buf, strlen(buf) + 1, 0);
     if(send_status < 0) {
         perror("Error in send\n");
         exit(-1);
@@ -113,7 +113,7 @@ int send_file(int sockfd, char* buf) {
     }
 
     // send iff we can open local_file
-    int send_status = send(sockfd, buf, BUFFER_SIZE, 0);
+    int send_status = send(sockfd, buf, strlen(buf) + 1, 0);
     if(send_status < 0) {
         perror("Error in send\n");
         exit(-1);
@@ -147,7 +147,8 @@ int send_file(int sockfd, char* buf) {
             uint16_t temp = htons(read_ret);
             memcpy(buf + 1, &temp, sizeof(uint16_t));
 
-            int send_status = send(sockfd, buf, BUFFER_SIZE, 0);
+            printf("Sent(%d): %c %s\n", read_ret, buf[0], buf + 3);
+            int send_status = send(sockfd, buf, read_ret+3, 0);
             if(send_status < 0) {
                 perror("Error in send\n");
                 exit(-1);
@@ -225,7 +226,7 @@ int main(int argc, char* argv[]) {
                 }
 
                 // also check for valid ip address and port: will connect do it for us? 
-
+                
                 memset(&serv_addr, 0, sizeof(serv_addr)); 
                 serv_addr.sin_family	= AF_INET;
                 inet_aton(ip, &serv_addr.sin_addr);    // This will set the value
@@ -245,7 +246,7 @@ int main(int argc, char* argv[]) {
                 // send username
                 printf("Inside opened!\n");
 
-                int send_status = send(sockfd, buf, BUFFER_SIZE, 0);
+                int send_status = send(sockfd, buf, strlen(buf) + 1, 0);
                 if(send_status < 0) {
                     perror("Error in send\n");
                     exit(-1);
@@ -279,7 +280,7 @@ int main(int argc, char* argv[]) {
 
             case GOT_USER: {
                 // send password
-                int send_status = send(sockfd, buf, BUFFER_SIZE, 0);
+                int send_status = send(sockfd, buf, strlen(buf) + 1, 0);
                 if(send_status < 0) {
                     perror("Error in send\n");
                     exit(-1);
@@ -392,7 +393,7 @@ int main(int argc, char* argv[]) {
                 }
 
                 else if(strcmp(cmd, "dir") == 0) {
-                    int send_status = send(sockfd, buf, BUFFER_SIZE, 0);
+                    int send_status = send(sockfd, buf, strlen(buf) + 1, 0);
                     if(send_status < 0) {
                         perror("Error in send\n");
                         exit(-1);
@@ -412,7 +413,7 @@ int main(int argc, char* argv[]) {
                     }
                 }
                 else if(strcmp(cmd, "cd") == 0){
-                    int send_status = send(sockfd, buf, BUFFER_SIZE, 0);
+                    int send_status = send(sockfd, buf, strlen(buf) + 1, 0);
                     if(send_status < 0) {
                         perror("Error in send\n");
                         exit(-1);
@@ -437,7 +438,8 @@ int main(int argc, char* argv[]) {
             }
             case QUIT: {
                 // send quit command to server!
-                int send_status = send(sockfd, buf, BUFFER_SIZE, 0);
+                // TODO: correct this!.. check if connected!!
+                int send_status = send(sockfd, buf, strlen(buf) + 1, 0);
                 if(send_status < 0) {
                     perror("Error in send\n");
                     exit(-1);

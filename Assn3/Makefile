@@ -8,3 +8,4 @@ server: ftpS.c
 
 clean:
 	rm -rf client server test temp.txt check.txt check.c temp/*
+	clear
