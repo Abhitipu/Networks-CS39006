@@ -13,8 +13,11 @@
 #include <sys/select.h> 
 
 #define ERROR -1
-#define SOCK_MRP 169
+#define SOCK_MRP 169        // Our type field in r_socket
 #define BUFFER_SIZE 100
+const int MAX_TABLE_SIZE = 50;
+const int THRESHOLD_TIME = 10;  // TODO: maybe change later?
+const int MAX_SLEEP = 10;       // TODO: maybe change later?
 
 // The library functions that are accessible to the user.
 int r_socket(int domain, int type, int protocol);
