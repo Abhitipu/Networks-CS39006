@@ -7,6 +7,7 @@
 #include <unistd.h>  
 #include <pthread.h> 
 #include <time.h>  
+#include <signal.h>
 
 #include <arpa/inet.h>
 #include <sys/socket.h>

@@ -1,6 +1,5 @@
 #include <rsocket.h>
 
-// return sendto(int sockfd, char* buf, size_t len, int flags, dest_addr, size_t addrlen);
 typedef struct _Message{
     int messageId;
     // dest ip and port 
@@ -34,24 +33,30 @@ typedef struct _mrpSocket {
     // socklen_t addrlen;
 } mrpSocket;
 
+pthread_t global_lock;
 mrpSocket* mySocket;
 int ctr;
 
 int isData(char* buf)
 {
+    // A utility function to check if the message is a data / ack message
+
     if(buf == NULL) {
         printf("Error Error in isData!");
         exit(-1);
     }
     return (buf[0] == 'M') ? 1 : 0;
 }
+
 int extractMessageId(char *buf)
 {
+    // A utility function to extract message id from the buffer.
+
     if(buf == NULL) {
         printf("Error Error in extract!");
         exit(-1);
     }
-    // {buf[1], buf[2], buf[3], buf[4]} -> int
+    // buf[1:4] -> int
     int dest;
 
     memcpy(&dest, buf + 1, 4);
@@ -59,18 +64,9 @@ int extractMessageId(char *buf)
     int mid = ntohl(dest);
     return mid;
 }
+
 int addmessage(char *buf, int retval, struct sockaddr *cli_addr) {
-    // Add to table
-    // M
-    // message.buf
-    // message.addr -> ip + port
-    // 
-    // M/A 4byte messageId rand int -> message sequence dest_address-port(4+2 bytes) 
-    // It also adds a message sequence
-    // no. at the beginning of the message and stores the message along with its sequence no.
-    // and destination address-port in the unacknowledged-message table before sending the
-    // message. With each entry, there is also a time field that is filled up initially with the
-    // time of first sending the message.
+    // Add to read message table
 
     Message* newMessage = (Message *)malloc(sizeof(Message));
     newMessage->messageId = extractMessageId(buf);
@@ -95,10 +91,10 @@ int addmessage(char *buf, int retval, struct sockaddr *cli_addr) {
         }
     }
     pthread_mutex_unlock(&(mySocket->myReadMessageTable.readTableMutex));
-
     
     return 0;
 }
+
 void* routine_r(void* param) {
     // Wait on recvfrom periodically
     // If data message:
@@ -167,6 +163,11 @@ void* routine_r(void* param) {
 }
 
 void* routine_s(void* param) {
+    // Thread S 
+    
+    // Check the unacked message table from time to time
+    // Resend the timed out messages
+
     mrpSocket* mySocket = (mrpSocket *)param;
 
     while(1) {
@@ -186,22 +187,29 @@ void* routine_s(void* param) {
 }
 
 void initMessage(Message* myMessage) {
+    // Utility function to initialize a message
     myMessage->messageId = -1;
     memset(myMessage->buf, '\0', sizeof(myMessage->buf));
 }
 
 void initSocket(mrpSocket* mySocket) {
+    // Utility function to initialize data structures and the mutex locks
     mySocket->myReadMessageTable.size = mySocket->myUnackedMessageTable.size = 0;
     for(int i = 0; i < MAX_TABLE_SIZE; i++) {
         initMessage(&(mySocket->myReadMessageTable.unreadMessages[i]));
         initMessage(&(mySocket->myUnackedMessageTable.unackedMessages[i]));
     }
+
     // 2 Mutex for tables
     pthread_mutex_init(&(mySocket->myUnackedMessageTable.unackedTableMutex), NULL);
     pthread_mutex_init(&(mySocket->myReadMessageTable.readTableMutex), NULL);
+
+    // 1 global mutex
+    pthread_mutex_init(&global_lock, NULL);
 }
 
 void copyMessage(Message* dest, Message* src) {
+    // A utility function to copy messages
     if(src == NULL || dest == NULL) {
         printf("Nullptr exception in in copyMessage");
         exit(-1);
@@ -231,21 +239,21 @@ int r_socket(int domain, int type, int protocol) {
     // Create 2 threads
     pthread_create(&(mySocket->R_id), NULL, routine_r, mySocket);
     pthread_create(&(mySocket->S_id), NULL, routine_s, mySocket);
+    
     int ret = socket(domain, SOCK_DGRAM, protocol);
     mySocket->sockfd = ret;
     return ret;
 }
 
 int r_bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
+    // Just an ordinary bind
     return bind(sockfd, addr, addrlen);
 }
 
 ssize_t r_sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen) {
-    /*
-        sendto()
-        put msg in unacked_msg_table
-    */
-    
+    // put msg in after sending
+    // TODO : maybe send first and then carry out the functionalities?
+
     // Design the message
     Message* newMessage = (Message *)malloc(sizeof(Message));
     newMessage->buf[0] = 'M';
@@ -312,16 +320,26 @@ ssize_t r_recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr
 
 int r_close(int fd) {
     
+    if(fd != mySocket->sockfd)
+        return -1;
+
+    int res = close(fd);
+    if(res < 0)
+        return res;
+
     // free the tables
+    free(mySocket);     // rest of the items are static in nature.. they will be destroyed automatically!
 
     // terminate S and R
     // close()
+    pthread_kill(mySocket->R_id, SIGINT);
+    pthread_kill(mySocket->S_id, SIGINT);
+
+    pthread_join(mySocket->R_id, NULL);
+    pthread_join(mySocket->S_id, NULL);
+
     pthread_mutex_destroy(&(mySocket->myReadMessageTable.readTableMutex));
     pthread_mutex_destroy(&(mySocket->myUnackedMessageTable.unackedTableMutex));
-    return ERROR;
+    
+    return res;
 }
-
-// int main() {
-
-//     return 0;
-// }
