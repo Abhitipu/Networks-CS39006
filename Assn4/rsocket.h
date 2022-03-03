@@ -18,6 +18,8 @@
 const int MAX_TABLE_SIZE = 50;
 const int THRESHOLD_TIME = 10;  // TODO: maybe change later?
 const int MAX_SLEEP = 10;       // TODO: maybe change later?
+const int RECVFROM_SLEEP_TIME = 1;  // second
+
 
 // The library functions that are accessible to the user.
 int r_socket(int domain, int type, int protocol);
