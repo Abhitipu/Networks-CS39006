@@ -1,4 +1,4 @@
-#include <rsocket.h>
+#include "rsocket.h"
 
 typedef struct _Message{
     int messageId;
@@ -33,7 +33,7 @@ typedef struct _mrpSocket {
     // socklen_t addrlen;
 } mrpSocket;
 
-pthread_t global_lock;
+pthread_mutex_t global_lock;
 mrpSocket* mySocket;
 int ctr;
 
@@ -63,6 +63,23 @@ int extractMessageId(char *buf)
 
     int mid = ntohl(dest);
     return mid;
+}
+
+void copyMessage(Message* dest, Message* src) {
+    // A utility function to copy messages
+    if(src == NULL || dest == NULL) {
+        printf("Nullptr exception in in copyMessage");
+        exit(-1);
+    }   
+    // [sockfd, len, flags]
+    dest->messageId = src->messageId;
+    dest->sockfd = src->sockfd;
+    dest->len = src->len;
+    dest->flags = src->flags;
+    dest->addr = src->addr;
+    dest->sentTime = src->sentTime;
+    dest->retval = src->retval;
+    memcpy(dest->buf, src->buf, BUFFER_SIZE + 1);
 }
 
 int addmessage(char *buf, int retval, struct sockaddr *cli_addr) {
@@ -104,7 +121,7 @@ void* routine_r(void* param) {
     
     mrpSocket* mySocket = (mrpSocket *)param;
     struct sockaddr_in cli_addr;
-    int addr_len;
+    socklen_t addr_len;
     char buf[BUFFER_SIZE];
     while(1)
     {
@@ -120,17 +137,21 @@ void* routine_r(void* param) {
         if(isData(buf))
         {
             // Add to read message table and send ack
-            printf("Message recvd %s\n");
+            printf("Message recvd %s\n", buf);
             // TODO
             // Message *newMessage = (Message *)  malloc(sizeof(Message));
             // initMwssage(newMessage);
             int ret = addmessage(buf, retval, (struct sockaddr*)&cli_addr);
+            if(ret <= 0) {
+                printf("Addmessage failed!\n");
+                return NULL;
+            }
             // ACK
             bzero(buf, sizeof(buf));
             buf[0]='A';
             int src = extractMessageId(buf);    // TODO: check
             memcpy(buf+1, &src, 4);
-            if(sendto(mySocket->sockfd, buf, BUFFER_SIZE-1, 0, (struct sockaddr*)&cli_addr, &addr_len) < 0)
+            if(sendto(mySocket->sockfd, buf, BUFFER_SIZE-1, 0, (struct sockaddr*)&cli_addr, addr_len) < 0)
             {
                 perror("sendto()");
             }
@@ -140,8 +161,7 @@ void* routine_r(void* param) {
             int mid = extractMessageId(buf);
             // pop_from_ack_table
             // TODO
-
-            
+// acha abhi ktj ka ek s=event hai me thode der me aata 
             pthread_mutex_lock(&(mySocket->myUnackedMessageTable.unackedTableMutex));
             for(int i = 0; i < MAX_TABLE_SIZE; i++) {
                 Message* curMessage = &(mySocket->myUnackedMessageTable.unackedMessages[i]);
@@ -149,12 +169,11 @@ void* routine_r(void* param) {
                     // TODO : add mutex lock for ctr
                     curMessage->messageId = -1;
                     mySocket->myUnackedMessageTable.size--;
+                    // arrey ye gadbad hai kya?
                     // return sendto(sockfd, buf, len, flags, dest_addr, addrlen);
                 }
             }
             pthread_mutex_unlock(&(mySocket->myUnackedMessageTable.unackedTableMutex));
-            
-            
         }
         
     }
@@ -179,8 +198,8 @@ void* routine_s(void* param) {
                 continue;
             // resend message from here and update the sentTime
             mySocket->myUnackedMessageTable.unackedMessages[i].sentTime = time(NULL);
-            size_t addrlen = sizeof(cur.addr);
-            sendto(mySocket->sockfd, cur.buf, strlen(cur.buf), 0, (const struct sockaddr*)(&(cur.addr)), &addrlen);
+            socklen_t addrlen = sizeof(cur.addr);
+            sendto(mySocket->sockfd, cur.buf, strlen(cur.buf), 0, (const struct sockaddr*)(&(cur.addr)), addrlen);
         }
     }
     return NULL;
@@ -206,23 +225,6 @@ void initSocket(mrpSocket* mySocket) {
 
     // 1 global mutex
     pthread_mutex_init(&global_lock, NULL);
-}
-
-void copyMessage(Message* dest, Message* src) {
-    // A utility function to copy messages
-    if(src == NULL || dest == NULL) {
-        printf("Nullptr exception in in copyMessage");
-        exit(-1);
-    }   
-    // [sockfd, len, flags]
-    dest->messageId = src->messageId;
-    dest->sockfd = src->sockfd;
-    dest->len = src->len;
-    dest->flags = src->flags;
-    dest->addr = src->addr;
-    dest->sentTime = src->sentTime;
-    dest->retval = src->retval;
-    memcpy(dest->buf, src->buf, BUFFER_SIZE + 1);
 }
 
 int r_socket(int domain, int type, int protocol) {
@@ -259,7 +261,7 @@ ssize_t r_sendto(int sockfd, const void *buf, size_t len, int flags, const struc
     newMessage->buf[0] = 'M';
     newMessage->messageId = ctr;
     int src = htonl(ctr);
-    memcpy(newMessage->buf + 1, src, 4);
+    memcpy(newMessage->buf + 1, &src, 4);
     memcpy(newMessage->buf + 5, (const char*)buf, BUFFER_SIZE - 5);
     newMessage->addr = *dest_addr;
     // mySocket --> table

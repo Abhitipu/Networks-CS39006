@@ -16,10 +16,14 @@
 #define ERROR -1
 #define SOCK_MRP 169        // Our type field in r_socket
 #define BUFFER_SIZE 100
-const int MAX_TABLE_SIZE = 50;
-const int THRESHOLD_TIME = 10;  // TODO: maybe change later?
-const int MAX_SLEEP = 10;       // TODO: maybe change later?
-const int RECVFROM_SLEEP_TIME = 1;  // second
+#define MAX_TABLE_SIZE 50
+// thik hai C chutiya hai
+// ruk ruk.. ek karke dekhta pehle
+// const int MAX_TABLE_SIZE = 50;
+// #define THRESHOLD_TIME 10
+#define THRESHOLD_TIME 10  // TODO: maybe change later?
+#define MAX_SLEEP 10       // TODO: maybe change later?
+#define RECVFROM_SLEEP_TIME 1  // second
 
 
 // The library functions that are accessible to the user.
