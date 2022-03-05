@@ -52,7 +52,7 @@ int main() {
         }
         printf("Sent %c\n", buf[i]);
     }
-
-    r_recvfrom(mrpSockfd, buf, 10, 0 , NULL, NULL);
+    r_close(mrpSockfd);
+    // r_recvfrom(mrpSockfd, buf, 10, 0 , NULL, NULL);
     return 0;
 }

@@ -17,14 +17,9 @@
 #define SOCK_MRP 169        // Our type field in r_socket
 #define BUFFER_SIZE 100
 #define MAX_TABLE_SIZE 50
-// thik hai C chutiya hai
-// ruk ruk.. ek karke dekhta pehle
-// const int MAX_TABLE_SIZE = 50;
-// #define THRESHOLD_TIME 10
-#define THRESHOLD_TIME 10  // TODO: maybe change later?
-#define MAX_SLEEP 10       // TODO: maybe change later?
 #define RECVFROM_SLEEP_TIME 1  // second
-#define DROP_PROBABILITY 0.8
+#define DROP_PROBABILITY 0.00
+#define T 2
 
 
 // The library functions that are accessible to the user.
