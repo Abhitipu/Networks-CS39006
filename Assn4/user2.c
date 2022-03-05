@@ -19,7 +19,7 @@ int main() {
       
     // Local specifications
     localAddr.sin_family    = AF_INET; 
-    localAddr.sin_addr.s_addr = INADDR_ANY; 
+    inet_aton("127.0.0.1", &localAddr.sin_addr); 
     localAddr.sin_port = htons(LOCAL_PORT); 
       
     // Bind the socket with the server address 

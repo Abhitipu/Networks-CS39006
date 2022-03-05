@@ -24,6 +24,7 @@
 #define THRESHOLD_TIME 10  // TODO: maybe change later?
 #define MAX_SLEEP 10       // TODO: maybe change later?
 #define RECVFROM_SLEEP_TIME 1  // second
+#define DROP_PROBABILITY 0.8
 
 
 // The library functions that are accessible to the user.

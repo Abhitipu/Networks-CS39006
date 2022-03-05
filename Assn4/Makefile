@@ -1,4 +1,5 @@
 assignement : user1 user2
+	clear
 
 user1 : user1.c libass_socket.a
 	cc -o user1 user1.c -L. -lass_socket -lpthread 
@@ -15,3 +16,4 @@ ass_socket.o : rsocket.c rsocket.h
 
 clean:
 	rm -f user1 user2 libass_socket.a ass_socket.o
+	clear

@@ -17,8 +17,9 @@ int main() {
     memset(&mrpLocaladdr, 0, sizeof(mrpLocaladdr));
     memset(&mrpRemoteaddr, 0, sizeof(mrpRemoteaddr));
 
+    // Local
     mrpLocaladdr.sin_family         = AF_INET;
-    mrpLocaladdr.sin_addr.s_addr    = INADDR_ANY;
+    inet_aton("127.0.0.1", &mrpLocaladdr.sin_addr); 
     mrpLocaladdr.sin_port           = htons(LOCAL_PORT);
 
     // All this is server info
@@ -52,6 +53,6 @@ int main() {
         printf("Sent %c\n", buf[i]);
     }
 
-    // r_recvfrom(mrpSockfd, buf, 10, 0 , NULL, NULL);
+    r_recvfrom(mrpSockfd, buf, 10, 0 , NULL, NULL);
     return 0;
 }

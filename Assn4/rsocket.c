@@ -45,6 +45,11 @@ int isData(char* buf)
         printf("Error Error in isData!");
         exit(-1);
     }
+
+    if(buf[0] != 'A' && buf[0] != 'M') {
+        printf("oh no no no\n");
+    }
+    printf("Check is Data %c\n", buf[0]);
     return (buf[0] == 'M') ? 1 : 0;
 }
 
@@ -89,7 +94,7 @@ int addmessage(char *buf, int retval, struct sockaddr *cli_addr) {
     newMessage->messageId = extractMessageId(buf);
     bzero(newMessage->buf, sizeof(newMessage->buf));
     strcpy(newMessage->buf, buf+5);
-    printf("Message Copied %s to %s\n", buf+5, newMessage->buf);
+    printf("Message (%d) Copied %s to %s\n", newMessage->messageId, buf+5, newMessage->buf);
     newMessage->addr = *cli_addr;
     newMessage->retval = retval;
 
@@ -121,19 +126,22 @@ void* routine_r(void* param) {
     //      remove from unacked_msg_table
     
     mrpSocket* mySocket = (mrpSocket *)param;
+    printf("Routine R called with sockfd : %d\n", mySocket->sockfd);
     struct sockaddr_in cli_addr;
     socklen_t addr_len;
-    char buf[BUFFER_SIZE];
+    char buf[BUFFER_SIZE + 1];
     while(1)
     {
         bzero(buf, sizeof(buf));
         addr_len = sizeof(struct sockaddr);
         int retval;
-        if( (retval = recvfrom(mySocket->sockfd, buf, BUFFER_SIZE-1, 0, (struct sockaddr*)&cli_addr, &addr_len)) < 0)
+        if((retval = recvfrom(mySocket->sockfd, buf, BUFFER_SIZE, 0, (struct sockaddr*)&cli_addr, &addr_len)) < 0)
         {
             perror("recvfrom()");
         }
+        printf("Retvall(recv from) = %d\n", retval);
         // check if buf is data or ack
+        printf("Routine R got %s %s\n",buf, buf+5);
         
         if(isData(buf))
         {
@@ -154,7 +162,7 @@ void* routine_r(void* param) {
             printf("ACK SENT FOR MESSAGE %d, to %s:%d\n", mid, inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
             int src = htonl(mid);    // TODO: check
             memcpy(buf+1, &src, 4);
-            if(sendto(mySocket->sockfd, buf, BUFFER_SIZE-1, 0, (struct sockaddr*)&cli_addr, addr_len) < 0)
+            if(sendto(mySocket->sockfd, buf, BUFFER_SIZE, 0, (struct sockaddr*)&cli_addr, addr_len) < 0)
             {
                 perror("sendto()");
             }
@@ -165,7 +173,7 @@ void* routine_r(void* param) {
             printf("ACK RECVD for message %d from %s:%d\n", mid, inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
             // pop_from_ack_table
             // TODO
-// acha abhi ktj ka ek s=event hai me thode der me aata 
+
             pthread_mutex_lock(&(mySocket->myUnackedMessageTable.unackedTableMutex));
             for(int i = 0; i < MAX_TABLE_SIZE; i++) {
                 Message* curMessage = &(mySocket->myUnackedMessageTable.unackedMessages[i]);
@@ -200,16 +208,20 @@ void* routine_s(void* param) {
         usleep(500000);
         for(int i = 0; i < MAX_TABLE_SIZE; i++) {
             // TODO Check
+            pthread_mutex_lock(&(mySocket->myUnackedMessageTable.unackedTableMutex));
             Message *cur = &(mySocket->myUnackedMessageTable.unackedMessages[i]); 
-            if(cur->messageId == -1 || (time(NULL) - cur->sentTime) <= THRESHOLD_TIME)
+            if(cur->messageId == -1 || (time(NULL) - cur->sentTime) <= THRESHOLD_TIME) {
+                pthread_mutex_unlock(&(mySocket->myUnackedMessageTable.unackedTableMutex));
                 continue;
+            }
             // resend message from here and update the sentTime
             printf("Message Here %d %s\n",cur->messageId ,  cur->buf + 5);
             mySocket->myUnackedMessageTable.unackedMessages[i].sentTime = time(NULL);
             socklen_t addrlen = sizeof(cur->addr);
-            sendto(mySocket->sockfd, cur->buf, BUFFER_SIZE-1, 0, (const struct sockaddr*)(&(cur->addr)), addrlen);
+            sendto(mySocket->sockfd, cur->buf, BUFFER_SIZE, 0, (const struct sockaddr*)(&(cur->addr)), addrlen);
             struct sockaddr_in *tempaddr = (struct sockaddr_in *)&(cur->addr);
             printf("Unack Message %s sent to %s:%d\n", cur->buf, inet_ntoa(tempaddr->sin_addr), ntohs(tempaddr->sin_port));
+            pthread_mutex_unlock(&(mySocket->myUnackedMessageTable.unackedTableMutex));
         }
     }
     return NULL;
@@ -243,23 +255,34 @@ int r_socket(int domain, int type, int protocol) {
 
     if(type != SOCK_MRP)
         return ERROR;
+
+    int ret = socket(domain, SOCK_DGRAM, protocol);
+    if(ret < 0)
+    {
+        perror("Socket()");
+        return ret;
+    }
     ctr = 0;
     // Init data structures
     mySocket = (mrpSocket *)malloc(sizeof(mrpSocket));
     initSocket(mySocket);
+    mySocket->sockfd = ret;
 
     // Create 2 threads
     pthread_create(&(mySocket->R_id), NULL, routine_r, mySocket);
     pthread_create(&(mySocket->S_id), NULL, routine_s, mySocket);
     
-    int ret = socket(domain, SOCK_DGRAM, protocol);
-    mySocket->sockfd = ret;
     return ret;
 }
 
 int r_bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
     // Just an ordinary bind
-    return bind(sockfd, addr, addrlen);
+    int ret = bind(sockfd, addr, addrlen);
+    if(ret < 0)
+    {
+        perror("bind()");
+    }
+    return ret;
 }
 
 ssize_t r_sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen) {
@@ -279,24 +302,34 @@ ssize_t r_sendto(int sockfd, const void *buf, size_t len, int flags, const struc
     struct sockaddr_in *tempaddr = (struct sockaddr_in *)&(newMessage->addr);
     printf("Addr copied to %s:%d\n", inet_ntoa(tempaddr->sin_addr), ntohs(tempaddr->sin_port));
     // mySocket --> table
+
     
+    int retVal = sendto(sockfd, newMessage->buf, BUFFER_SIZE, flags, dest_addr, addrlen);
+    if(retVal < 0)
+        return retVal;
+
+    int flag = 0;
     pthread_mutex_lock(&(mySocket->myUnackedMessageTable.unackedTableMutex));
     for(int i = 0; i < MAX_TABLE_SIZE; i++) {
         Message* curMessage = &(mySocket->myUnackedMessageTable.unackedMessages[i]);
         if(curMessage->messageId == -1) {
+            printf("Sent this %s and ctr was %d\n", newMessage->buf + 5, ctr);
             // add
             copyMessage(curMessage, newMessage);
             // TODO : add mutex lock for ctr
             curMessage->messageId = ctr;
             printf("A new message %d added\n", ctr);
             ctr++;
-            pthread_mutex_unlock(&(mySocket->myUnackedMessageTable.unackedTableMutex));
-            return sendto(sockfd, buf, len, flags, dest_addr, addrlen);
+            flag = 1;
+            break;
         }
     }
     pthread_mutex_unlock(&(mySocket->myUnackedMessageTable.unackedTableMutex));
-
-    return ERROR;
+    if(!flag)
+    {
+        printf("No space Available in unacked tablee\n");
+    }
+    return flag ? retVal:ERROR;
 }
 
 ssize_t r_recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen) {
