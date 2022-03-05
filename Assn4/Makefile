@@ -1,3 +1,5 @@
+assignement : user1 user2
+
 user1 : user1.c libass_socket.a
 	cc -o user1 user1.c -L. -lass_socket -lpthread 
 

@@ -16,16 +16,20 @@ int main() {
     // Reset variables
     memset(&mrpLocaladdr, 0, sizeof(mrpLocaladdr));
     memset(&mrpRemoteaddr, 0, sizeof(mrpRemoteaddr));
-      
+
+    mrpLocaladdr.sin_family         = AF_INET;
+    mrpLocaladdr.sin_addr.s_addr    = INADDR_ANY;
+    mrpLocaladdr.sin_port           = htons(LOCAL_PORT);
+
     // All this is server info
 	mrpRemoteaddr.sin_family		= AF_INET;
-	mrpRemoteaddr.sin_addr.s_addr	= INADDR_ANY;   
+	inet_aton("127.0.0.1", &mrpRemoteaddr.sin_addr);   
 	mrpRemoteaddr.sin_port		= htons(REMOTE_PORT);     // Network Byte Order or big endian system
 
     // Makefile bana lete.. 
     // dropmessage se pehle test bhi ho jaayega
     // Bind the mrp socket with the server address 
-	if (r_bind(mrpSockfd, (struct sockaddr *) &mrpRemoteaddr, sizeof(mrpRemoteaddr)) < 0) {
+	if (r_bind(mrpSockfd, (struct sockaddr *) &mrpLocaladdr, sizeof(mrpLocaladdr)) < 0) {
 		perror("Unable to bind local address\n");
 		exit(0);
 	}
@@ -40,12 +44,14 @@ int main() {
         char tempbuf[2];
         tempbuf[0] = buf[i];
         tempbuf[1] = '\0';
-        int sendStatus = r_sendto(mrpSockfd, tempbuf, 1, 0, (const struct sockaddr*)&mrpRemoteaddr, len); 
+        int sendStatus = r_sendto(mrpSockfd, tempbuf, 2, 0, (const struct sockaddr*)&mrpRemoteaddr, len); 
         if(sendStatus < 0) {
             perror("Send failed!\n");
             exit(-1);
         }
         printf("Sent %c\n", buf[i]);
     }
+
+    // r_recvfrom(mrpSockfd, buf, 10, 0 , NULL, NULL);
     return 0;
 }

@@ -89,6 +89,7 @@ int addmessage(char *buf, int retval, struct sockaddr *cli_addr) {
     newMessage->messageId = extractMessageId(buf);
     bzero(newMessage->buf, sizeof(newMessage->buf));
     strcpy(newMessage->buf, buf+5);
+    printf("Message Copied %s to %s\n", buf+5, newMessage->buf);
     newMessage->addr = *cli_addr;
     newMessage->retval = retval;
 
@@ -101,7 +102,7 @@ int addmessage(char *buf, int retval, struct sockaddr *cli_addr) {
         if(curMessage->messageId == -1) {
             // add
             copyMessage(curMessage, newMessage);
-            
+            printf("Message added at i = %d, message = %s \n", i, curMessage->buf);
             mySocket->myReadMessageTable.size++;
             pthread_mutex_unlock(&(mySocket->myReadMessageTable.readTableMutex));
             return 1;
@@ -137,7 +138,8 @@ void* routine_r(void* param) {
         if(isData(buf))
         {
             // Add to read message table and send ack
-            printf("Message recvd %s\n", buf);
+            int mid = extractMessageId(buf);
+            printf("Message recvd %d %s\n", mid, buf+5);
             // TODO
             // Message *newMessage = (Message *)  malloc(sizeof(Message));
             // initMwssage(newMessage);
@@ -149,7 +151,8 @@ void* routine_r(void* param) {
             // ACK
             bzero(buf, sizeof(buf));
             buf[0]='A';
-            int src = extractMessageId(buf);    // TODO: check
+            printf("ACK SENT FOR MESSAGE %d, to %s:%d\n", mid, inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
+            int src = htonl(mid);    // TODO: check
             memcpy(buf+1, &src, 4);
             if(sendto(mySocket->sockfd, buf, BUFFER_SIZE-1, 0, (struct sockaddr*)&cli_addr, addr_len) < 0)
             {
@@ -159,12 +162,14 @@ void* routine_r(void* param) {
         else
         {
             int mid = extractMessageId(buf);
+            printf("ACK RECVD for message %d from %s:%d\n", mid, inet_ntoa(cli_addr.sin_addr), ntohs(cli_addr.sin_port));
             // pop_from_ack_table
             // TODO
 // acha abhi ktj ka ek s=event hai me thode der me aata 
             pthread_mutex_lock(&(mySocket->myUnackedMessageTable.unackedTableMutex));
             for(int i = 0; i < MAX_TABLE_SIZE; i++) {
                 Message* curMessage = &(mySocket->myUnackedMessageTable.unackedMessages[i]);
+                
                 if(curMessage->messageId == mid && memcmp(&curMessage->addr, &cli_addr, sizeof(struct sockaddr)) == 0 ) {
                     // TODO : add mutex lock for ctr
                     curMessage->messageId = -1;
@@ -186,20 +191,25 @@ void* routine_s(void* param) {
     
     // Check the unacked message table from time to time
     // Resend the timed out messages
-
     mrpSocket* mySocket = (mrpSocket *)param;
 
     while(1) {
-        sleep(rand()%MAX_SLEEP);
+        // sleep(rand()%MAX_SLEEP); //TODO
+        // printf("Routine S in force\n");
+
+        usleep(500000);
         for(int i = 0; i < MAX_TABLE_SIZE; i++) {
             // TODO Check
-            Message cur = mySocket->myUnackedMessageTable.unackedMessages[i]; 
-            if(cur.messageId == -1 || (time(NULL) - cur.sentTime) <= THRESHOLD_TIME)
+            Message *cur = &(mySocket->myUnackedMessageTable.unackedMessages[i]); 
+            if(cur->messageId == -1 || (time(NULL) - cur->sentTime) <= THRESHOLD_TIME)
                 continue;
             // resend message from here and update the sentTime
+            printf("Message Here %d %s\n",cur->messageId ,  cur->buf + 5);
             mySocket->myUnackedMessageTable.unackedMessages[i].sentTime = time(NULL);
-            socklen_t addrlen = sizeof(cur.addr);
-            sendto(mySocket->sockfd, cur.buf, strlen(cur.buf), 0, (const struct sockaddr*)(&(cur.addr)), addrlen);
+            socklen_t addrlen = sizeof(cur->addr);
+            sendto(mySocket->sockfd, cur->buf, BUFFER_SIZE-1, 0, (const struct sockaddr*)(&(cur->addr)), addrlen);
+            struct sockaddr_in *tempaddr = (struct sockaddr_in *)&(cur->addr);
+            printf("Unack Message %s sent to %s:%d\n", cur->buf, inet_ntoa(tempaddr->sin_addr), ntohs(tempaddr->sin_port));
         }
     }
     return NULL;
@@ -253,6 +263,7 @@ int r_bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 }
 
 ssize_t r_sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen) {
+    printf("Rsendto called\n");
     // put msg in after sending
     // TODO : maybe send first and then carry out the functionalities?
 
@@ -262,8 +273,11 @@ ssize_t r_sendto(int sockfd, const void *buf, size_t len, int flags, const struc
     newMessage->messageId = ctr;
     int src = htonl(ctr);
     memcpy(newMessage->buf + 1, &src, 4);
-    memcpy(newMessage->buf + 5, (const char*)buf, BUFFER_SIZE - 5);
+    memcpy(newMessage->buf + 5, (const char*)buf, len);
+    printf("[R_SENDTO] %s %s\n" , (char*)buf, newMessage->buf + 5);
     newMessage->addr = *dest_addr;
+    struct sockaddr_in *tempaddr = (struct sockaddr_in *)&(newMessage->addr);
+    printf("Addr copied to %s:%d\n", inet_ntoa(tempaddr->sin_addr), ntohs(tempaddr->sin_port));
     // mySocket --> table
     
     pthread_mutex_lock(&(mySocket->myUnackedMessageTable.unackedTableMutex));
@@ -273,6 +287,8 @@ ssize_t r_sendto(int sockfd, const void *buf, size_t len, int flags, const struc
             // add
             copyMessage(curMessage, newMessage);
             // TODO : add mutex lock for ctr
+            curMessage->messageId = ctr;
+            printf("A new message %d added\n", ctr);
             ctr++;
             pthread_mutex_unlock(&(mySocket->myUnackedMessageTable.unackedTableMutex));
             return sendto(sockfd, buf, len, flags, dest_addr, addrlen);
@@ -300,7 +316,7 @@ ssize_t r_recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr
                 Message* curMessage = &(mySocket->myReadMessageTable.unreadMessages[i]);
                 if(curMessage->messageId != -1) {
                     // add
-                    memcpy(buf, curMessage, len);
+                    memcpy(buf, curMessage->buf, len);
                     *src_addr = curMessage->addr; 
                     // TODO : add mutex lock for ctr
                     curMessage->messageId = -1;
