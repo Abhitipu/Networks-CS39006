@@ -27,8 +27,6 @@ int main() {
 	inet_aton("127.0.0.1", &mrpRemoteaddr.sin_addr);   
 	mrpRemoteaddr.sin_port		= htons(REMOTE_PORT);     // Network Byte Order or big endian system
 
-    // Makefile bana lete.. 
-    // dropmessage se pehle test bhi ho jaayega
     // Bind the mrp socket with the server address 
 	if (r_bind(mrpSockfd, (struct sockaddr *) &mrpLocaladdr, sizeof(mrpLocaladdr)) < 0) {
 		perror("Unable to bind local address\n");
@@ -53,6 +51,5 @@ int main() {
         printf("Sent %c\n", buf[i]);
     }
     r_close(mrpSockfd);
-    // r_recvfrom(mrpSockfd, buf, 10, 0 , NULL, NULL);
     return 0;
 }

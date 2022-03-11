@@ -36,12 +36,18 @@ mrpSocket* mySocket;
 int ctr;
 int nTransmissions, nMessages;
 
-int dropMessage(float p) {
-    return p < DROP_PROBABILITY;
-}
 
 float getRandomFloat() {
     return (float)rand() / (float)RAND_MAX;
+}
+
+int dropMessage(float p) {
+    float genrandom = getRandomFloat();
+    if(genrandom < p)
+    {
+        return 1;
+    }
+    return 0;
 }
 
 int isData(char* buf)
@@ -49,14 +55,10 @@ int isData(char* buf)
     // A utility function to check if the message is a data / ack message
 
     if(buf == NULL) {
-        printf("Error Error in isData!");
+        printf("Error in isData!");
         exit(-1);
     }
 
-    if(buf[0] != 'A' && buf[0] != 'M') {
-        printf("oh no no no\n");
-    }
-    printf("Check is Data %c\n", buf[0]);
     return (buf[0] == 'M') ? 1 : 0;
 }
 
@@ -109,19 +111,16 @@ int addmessage(char *buf, int retval, struct sockaddr *cli_addr) {
     newMessage->messageId = extractMessageId(buf);
     bzero(newMessage->buf, sizeof(newMessage->buf));
     strcpy(newMessage->buf, buf+5);
-    printf("Message (%d) Copied %s to %s\n", newMessage->messageId, buf+5, newMessage->buf);
     newMessage->addr = *cli_addr;
     newMessage->retval = retval;
 
     pthread_mutex_lock(&(mySocket->myReadMessageTable.readTableMutex));
-    // CHECK TODO
 
     for(int i = 0; i < MAX_TABLE_SIZE; i++) {
         Message* curMessage = &(mySocket->myReadMessageTable.unreadMessages[i]);
         if(curMessage->messageId == -1) {
             // add
             copyMessage(curMessage, newMessage);
-            printf("Message added at i = %d, message = %s \n", i, curMessage->buf);
             mySocket->myReadMessageTable.size++;
             pthread_mutex_unlock(&(mySocket->myReadMessageTable.readTableMutex));
             return 1;
@@ -140,7 +139,6 @@ void* routine_r(void* param) {
     //      remove from unacked_msg_table
     
     mrpSocket* mySocket = (mrpSocket *)param;
-    printf("Routine R called with sockfd : %d\n", mySocket->sockfd);
     struct sockaddr_in cli_addr;
     socklen_t addr_len;
     char buf[BUFFER_SIZE + 1];
@@ -153,12 +151,9 @@ void* routine_r(void* param) {
         {
             perror("recvfrom()");
         }
-        printf("Retvall(recv from) = %d\n", retval);
         // check if buf is data or ack
-        printf("Routine R got %s %s\n",buf, buf+5);
-
-        float p = getRandomFloat();
-        if(dropMessage(p)) {
+        
+        if(dropMessage(DROP_PROBABILITY)) {
             continue;
         }
         
@@ -166,7 +161,6 @@ void* routine_r(void* param) {
         {
             // Add to read message table and send ack
             int mid = extractMessageId(buf);
-            printf("Message recvd %d %s\n", mid, buf+5);
 
             int ret = addmessage(buf, retval, (struct sockaddr*)&cli_addr);
             if(ret <= 0) {
@@ -213,7 +207,6 @@ void* routine_s(void* param) {
     mrpSocket* mySocket = (mrpSocket *)param;
 
     while(1) {
-        // printf("Routine S in force\n");
 
         sleep(T);
         for(int i = 0; i < MAX_TABLE_SIZE; i++) {
@@ -224,7 +217,6 @@ void* routine_s(void* param) {
                 continue;
             }
             // resend message from here and update the sentTime
-            printf("Message Here %d %s\n",cur->messageId ,  cur->buf + 5);
             mySocket->myUnackedMessageTable.unackedMessages[i].sentTime = time(NULL);
             socklen_t addrlen = sizeof(cur->addr);
             sendto(mySocket->sockfd, cur->buf, BUFFER_SIZE, 0, (const struct sockaddr*)(&(cur->addr)), addrlen);
@@ -300,7 +292,6 @@ int r_bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen) {
 }
 
 ssize_t r_sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen) {
-    printf("Rsendto called\n");
     // put msg in after sending
 
     // Design the message
@@ -310,10 +301,7 @@ ssize_t r_sendto(int sockfd, const void *buf, size_t len, int flags, const struc
     int src = htonl(ctr);
     memcpy(newMessage->buf + 1, &src, 4);
     memcpy(newMessage->buf + 5, (const char*)buf, len);
-    printf("[R_SENDTO] %s %s\n" , (char*)buf, newMessage->buf + 5);
     newMessage->addr = *dest_addr;
-    struct sockaddr_in *tempaddr = (struct sockaddr_in *)&(newMessage->addr);
-    printf("Addr copied to %s:%d\n", inet_ntoa(tempaddr->sin_addr), ntohs(tempaddr->sin_port));
     // mySocket --> table
 
     
@@ -326,13 +314,13 @@ ssize_t r_sendto(int sockfd, const void *buf, size_t len, int flags, const struc
     for(int i = 0; i < MAX_TABLE_SIZE; i++) {
         Message* curMessage = &(mySocket->myUnackedMessageTable.unackedMessages[i]);
         if(curMessage->messageId == -1) {
-            printf("Sent this %s and ctr was %d\n", newMessage->buf + 5, ctr);
             // add
             copyMessage(curMessage, newMessage);
             curMessage->messageId = ctr;
             curMessage->sentTime = time(NULL);
-            printf("A new message %d added\n", ctr);
+            pthread_mutex_lock(&global_lock);
             ctr++;
+            pthread_mutex_unlock(&global_lock);
             nTransmissions++;
             nMessages++;
             flag = 1;
@@ -343,7 +331,7 @@ ssize_t r_sendto(int sockfd, const void *buf, size_t len, int flags, const struc
     pthread_mutex_unlock(&(mySocket->myUnackedMessageTable.unackedTableMutex));
     if(!flag)
     {
-        printf("No space Available in unacked tablee\n");
+        printf("No space Available in unacked table\n");
     }
     return flag ? retVal:ERROR;
 }
@@ -356,7 +344,6 @@ ssize_t r_recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr
     //         return 1st message
     //     else
     //         sleep
-    
 
     while(1) {
         if(mySocket->myReadMessageTable.size) {
@@ -390,7 +377,6 @@ int r_close(int fd) {
     if(fd != mySocket->sockfd)
         return -1;
     
-    // close()
     pthread_join(mySocket->R_id, NULL);
     pthread_join(mySocket->S_id, NULL);
 
@@ -398,18 +384,15 @@ int r_close(int fd) {
     if(res < 0)
         return res;
     
-
-    // free the tables
-    free(mySocket);     // rest of the items are static in nature.. they will be destroyed automatically!
-
     // terminate S and R
-
     pthread_kill(mySocket->R_id, SIGINT);
     pthread_kill(mySocket->S_id, SIGINT);
 
-
     pthread_mutex_destroy(&(mySocket->myReadMessageTable.readTableMutex));
     pthread_mutex_destroy(&(mySocket->myUnackedMessageTable.unackedTableMutex));
+    
+    // free the tables
+    free(mySocket);     // rest of the items are static in nature.. they will be destroyed automatically!
     
     return res;
 }

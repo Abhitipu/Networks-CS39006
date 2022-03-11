@@ -18,7 +18,7 @@
 #define BUFFER_SIZE 100
 #define MAX_TABLE_SIZE 50
 #define RECVFROM_SLEEP_TIME 1  // second
-#define DROP_PROBABILITY 0.00
+#define DROP_PROBABILITY 0.0
 #define T 2
 
 

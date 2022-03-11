@@ -5,7 +5,6 @@ const int REMOTE_PORT = 50000 + 2*(0005);
 
 int main() {
     struct sockaddr_in remoteAddr, localAddr; 
-      //bind r_bind hoga? Haan
     // Create socket file descriptor 
     int sockfd = r_socket(AF_INET, SOCK_MRP, 0);
     if (sockfd < 0) { 

@@ -14,5 +14,8 @@ ass_socket.o : rsocket.c rsocket.h
 	gcc -Wall -c rsocket.c -o ass_socket.o
 
 clean:
-	rm -f user1 user2 libass_socket.a ass_socket.o
+	rm -rf user1 user2 libass_socket.a ass_socket.o *.gz
 	clear
+
+tarify:
+	tar -cvf Assignment4_19CS30007_19CS10069.tar.gz rsocket.h rsocket.c user1.c user2.c Makefile documentation.txt README.txt
