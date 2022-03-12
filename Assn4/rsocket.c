@@ -304,7 +304,6 @@ ssize_t r_sendto(int sockfd, const void *buf, size_t len, int flags, const struc
     newMessage->addr = *dest_addr;
     // mySocket --> table
 
-    
     int retVal = sendto(sockfd, newMessage->buf, BUFFER_SIZE, flags, dest_addr, addrlen);
     if(retVal < 0)
         return retVal;
@@ -377,16 +376,16 @@ int r_close(int fd) {
     if(fd != mySocket->sockfd)
         return -1;
     
+    // terminate S and R
+    pthread_kill(mySocket->R_id, SIGINT);
+    pthread_kill(mySocket->S_id, SIGINT);
+
     pthread_join(mySocket->R_id, NULL);
     pthread_join(mySocket->S_id, NULL);
 
     int res = close(fd);
     if(res < 0)
         return res;
-    
-    // terminate S and R
-    pthread_kill(mySocket->R_id, SIGINT);
-    pthread_kill(mySocket->S_id, SIGINT);
 
     pthread_mutex_destroy(&(mySocket->myReadMessageTable.readTableMutex));
     pthread_mutex_destroy(&(mySocket->myUnackedMessageTable.unackedTableMutex));

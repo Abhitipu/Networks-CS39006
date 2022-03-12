@@ -50,6 +50,10 @@ int main() {
         }
         printf("Sent %c\n", buf[i]);
     }
+
+    // So that r_close() is never called
+    while(1);
+
     r_close(mrpSockfd);
     return 0;
 }
