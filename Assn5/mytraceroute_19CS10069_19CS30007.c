@@ -76,12 +76,18 @@ int main(int argc, char *argv[]) {
     }
 
     int sockfd1 = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+	if(sockfd1 < 0) {
+		perror("Error in socket()");
+	}
     int sockfd2 = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+	if(sockfd2 < 0) {
+		perror("Error in socket()");
+	}
 
     int one = 1;
     const int *val = &one;
-    // TODO: check
-    if (setsockopt (sockfd1, IPPROTO_RAW, IP_HDRINCL, val, sizeof (one)) < 0)
+
+    if (setsockopt (sockfd1, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
     {
         printf ("Error setting IP_HDRINCL. Error number : %d . Error message : %s \n" , errno , strerror(errno));
         exit(0);
@@ -104,7 +110,7 @@ int main(int argc, char *argv[]) {
 	
 	//Data part
 	data = datagram + sizeof(struct iphdr) + sizeof(struct udphdr);
-	strcpy(data , "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ");
+	strcpy(data, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ");
 	
 	//some address resolution
 	strcpy(source_ip , "127.0.0.1");
@@ -123,7 +129,7 @@ int main(int argc, char *argv[]) {
 	iph->ttl = 255; // ttl
 	iph->protocol = IPPROTO_UDP;
 	iph->check = 0;		//Set to 0 before calculating checksum
-	iph->saddr = inet_addr ( source_ip );	//Spoof the source ip address
+	iph->saddr = inet_addr (source_ip);	//Spoof the source ip address
 	iph->daddr = dest.sin_addr.s_addr;
 	
 	//Ip checksum
