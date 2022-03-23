@@ -162,9 +162,9 @@ int main(int argc, char *argv[])
             ip->version = 4;
             ip->tos = 0; // low delay
             ip->tot_len = sizeof(struct iphdr) + sizeof(struct udphdr) + N; //https://tools.ietf.org/html/rfc791#page-11
-            ip->id = htons(54322);
-            printf("\n\n TTL: %d htons(TTL): %d\n\n", ttl, htons(ttl));
-            ip->ttl = htons(ttl);     // hops
+            ip->id = htons(12219);
+            // printf("\n\n TTL: %d htons(TTL): %d\n\n", ttl, htons(ttl));
+            ip->ttl = ttl;     // hops
             ip->protocol = 17; // UDP
             ip->saddr = 0;     //src_addr;
             ip->daddr = inet_addr(dest_ip);
@@ -263,7 +263,7 @@ int main(int argc, char *argv[])
                     {
                         if (times > 3)
                         {
-                            printf("%d\t*\t*\n", ttl);
+                            printf("%d\t*\t*\t*\n", ttl);
                             times = 1;
                             ttl++;
                         }
@@ -280,7 +280,7 @@ int main(int argc, char *argv[])
             // printf("Timeout\n");
             if (times > 3)
             {
-                printf("%d\t*\t*\n", ttl);
+                printf("%d\t*\t*\t*\n", ttl);
                 times = 1;
                 ttl++;
             }
