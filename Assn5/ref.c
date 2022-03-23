@@ -106,15 +106,27 @@ int main(int argc, char *argv[])
 		perror("Error in socket()");
 	}
 
-    struct sockaddr_in saddr_raw, cli_addr;
+    struct sockaddr_in saddr_raw1, saddr_raw2, cli_addr;
 
-    saddr_raw.sin_family = AF_INET;
-    saddr_raw.sin_port = htons(SRC_PORT);
-    saddr_raw.sin_addr.s_addr = INADDR_ANY; //inet_addr(LISTEN_IP);
-    socklen_t saddr_raw_len = sizeof(saddr_raw);
+    saddr_raw1.sin_family = AF_INET;
+    saddr_raw1.sin_port = htons(SRC_PORT);
+    saddr_raw1.sin_addr.s_addr = INADDR_ANY; // inet_addr("127.0.0.1"); //inet_addr(LISTEN_IP);
+    socklen_t saddr_raw_len = sizeof(saddr_raw1);
+
+    saddr_raw2.sin_family = AF_INET;
+    saddr_raw2.sin_port = htons(SRC_PORT);
+    saddr_raw2.sin_addr.s_addr = INADDR_ANY; // inet_addr("127.0.0.1"); //inet_addr(LISTEN_IP);
 
     /* 3. Bind the Sockets */
-    if (bind(sockfd1, (struct sockaddr *)&saddr_raw, saddr_raw_len) < 0)
+    if (bind(sockfd1, (struct sockaddr *)&saddr_raw1, saddr_raw_len) < 0)
+    {
+        perror("raw bind");
+        close(sockfd1);
+        close(sockfd2);
+        exit(1);
+    }
+
+    if (bind(sockfd2, (struct sockaddr *)&saddr_raw2, saddr_raw_len) < 0)
     {
         perror("raw bind");
         close(sockfd1);
@@ -139,13 +151,13 @@ int main(int argc, char *argv[])
         exit(1);
     }
 
-    int ttl = 1;
+    unsigned char ttl = 1;
     fd_set myfd;
     char payload[52];
     clock_t start_time;
     struct timeval tv, prev_tv;
     int repeats = 0;
-    int timed_out = 0;
+    // int timed_out = 0;
     int state = SEND_MSG;
 
     while (state != END_TRACE) {
@@ -212,16 +224,20 @@ int main(int argc, char *argv[])
                 close(sockfd1);
                 close(sockfd2);
                 exit(1);
-            } else if(tv.tv_sec == 0 && tv.tv_usec == 0) {
+            } else if(ret == 0) {
                 // Select timed out
                 fprintf(stderr, "Select timed out!\n");
                 if(repeats == 3) {
                     // sent 3 times already
-                    printf("%d\t*\t*\t*\t*\t\n",ttl);
+                    printf("\n");
                     ttl++;
                     repeats = 0;
-                } else
+                } else {
+                    if(repeats == 0)
+                        printf("%d", ttl);
+                    printf("\t*");
                     repeats++;
+                }
 
                 state = SEND_MSG;
             }
@@ -233,10 +249,10 @@ int main(int argc, char *argv[])
                     fprintf(stderr, "Beep boop! Something in sockfd2\n");
                     char msg[MSG_SIZE];
                     int msglen;
-                    socklen_t raddr_len = sizeof(saddr_raw);
-                    msglen = recvfrom(sockfd2, msg, MSG_SIZE, 0, (struct sockaddr *)&saddr_raw, &raddr_len);
+                    socklen_t raddr_len = sizeof(saddr_raw1);
+                    msglen = recvfrom(sockfd2, msg, MSG_SIZE, 0, (struct sockaddr *)&saddr_raw2, &raddr_len);
                     clock_t end_time = clock();
-
+                    fprintf(stderr, "ICMP RECV FROM %s\n", inet_ntoa(saddr_raw2.sin_addr));
                     // Continue with select {empty packet}
                     if (msglen <= 0) {
                         fprintf(stderr, "BLANK :(\n");
@@ -306,6 +322,7 @@ int main(int argc, char *argv[])
         if(ttl >= MAX_TTL)
             state = END_TRACE;
     }
+
     close(sockfd1);
     close(sockfd2);
     return 0;
