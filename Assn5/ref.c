@@ -149,11 +149,12 @@ int main(int argc, char *argv[])
     int state = SEND_MSG;
 
     while (state != END_TRACE) {
-        char buffer[PCKT_LEN];
-        struct iphdr *ip = (struct iphdr *)buffer;
-        struct udphdr *udp = (struct udphdr *)(buffer + sizeof(struct iphdr));
 
         if(state == SEND_MSG) {
+            char buffer[PCKT_LEN];
+            struct iphdr *ip = (struct iphdr *)buffer;
+            struct udphdr *udp = (struct udphdr *)(buffer + sizeof(struct iphdr));
+
             /* 4. generate Payload */
             gen(payload);
             bzero(buffer, sizeof(buffer));
@@ -179,6 +180,7 @@ int main(int argc, char *argv[])
             ip->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + sizeof(struct udphdr));
 
             /* 6. Send the packet */
+            fprintf(stderr, "I'm sending the message!\n");
             strcpy(buffer + sizeof(struct iphdr) + sizeof(struct udphdr), payload);
             if (sendto(sockfd1, buffer, ip->tot_len, 0, (struct sockaddr *)&cli_addr, sizeof(cli_addr)) < 0) {
                 perror("sendto()");
@@ -215,21 +217,19 @@ int main(int argc, char *argv[])
                 fprintf(stderr, "Select timed out!\n");
                 if(repeats == 3) {
                     // sent 3 times already
+                    printf("%d\t*\t*\t*\t*\t\n",ttl);
                     ttl++;
                     repeats = 0;
                 } else
                     repeats++;
 
                 state = SEND_MSG;
-                prev_tv.tv_sec = 1;
-                prev_tv.tv_usec = 0;
             }
             else {
                 // Received a message
                 fprintf(stderr, "Received a message\n");
                 if (FD_ISSET(sockfd2, &myfd)) {
                     /* 8. Read the ICMP Message */
-                    // printf("ICMP\n");
                     fprintf(stderr, "Beep boop! Something in sockfd2\n");
                     char msg[MSG_SIZE];
                     int msglen;
@@ -263,7 +263,7 @@ int main(int argc, char *argv[])
                         if (hdricmp.type == 3) {
                             //  ensure we've reached destination
                             fprintf(stderr, "Destination unreachable\n");
-                            if (hdrip.saddr == ip->daddr) {
+                            if (hdrip.saddr == inet_addr(dest_ip)) {
                                 fprintf(stderr, "Yayyy!! Done!!\n");
                                 printf("%d\t%s\t%.3f ms\n", ttl, inet_ntoa(saddr_ip), (float)(end_time - start_time) / CLOCKS_PER_SEC * 1000);
                                 close(sockfd1);

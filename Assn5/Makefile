@@ -11,7 +11,7 @@ client: my_udpclient.c
 
 ref: ref.c
 	cc -o ref ref.c
-	sudo ./ref www.google.com
+	sudo ./ref www.google.com 2> error.log
 
 ref_orig: ref_orig.c
 	cc -o ref_orig ref_orig.c
