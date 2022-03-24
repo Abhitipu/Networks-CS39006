@@ -1,197 +1,329 @@
-#include <stdio.h> 
-#include <stdlib.h> 
-#include <unistd.h> 
-#include <string.h> 
-#include <errno.h>
-
-#include <sys/types.h> 
-#include <sys/socket.h> 
-#include <arpa/inet.h> 
-#include <netinet/in.h> 
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <netinet/udp.h>
+#include <netinet/ip_icmp.h>
+#include <sys/socket.h>
+#include <sys/select.h>
+#include <sys/wait.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <signal.h>
 #include <netdb.h>
-#include<netinet/udp.h>	//Provides declarations for udp header
-#include<netinet/ip.h>	//Provides declarations for ip header
+#include <errno.h>
+#include <fcntl.h>
+#include <time.h>
 
-#define BUFFER_LEN 100
+#define N 52
+#define MSG_SIZE 2048
+#define MAX_CHAR 100
+#define PCKT_LEN 8192
+#define TIMEOUT 1
+#define MAX_HOP 16
 #define DEST_PORT 32164
-#define SRC_PORT 20000
+#define SRC_PORT 8080
+#define MAX_TTL 16
 
-/*
-	Generic checksum calculation function
-*/
+#define SEND_MSG 5
+#define WAIT_MSG 6
+#define END_TRACE 7
 
-struct pseudo_header
+/* Function to generate random string */
+void gen(char *dst)
 {
-	u_int32_t source_address;
-	u_int32_t dest_address;
-	u_int8_t placeholder;
-	u_int8_t protocol;
-	u_int16_t udp_length;
-};
-
-unsigned short csum(unsigned short *ptr,int nbytes) 
-{
-	register long sum;
-	unsigned short oddbyte;
-	register short answer;
-
-	sum=0;
-	while(nbytes>1) {
-		sum+=*ptr++;
-		nbytes-=2;
-	}
-	if(nbytes==1) {
-		oddbyte=0;
-		*((u_char*)&oddbyte)=*(u_char*)ptr;
-		sum+=oddbyte;
-	}
-
-	sum = (sum>>16)+(sum & 0xffff);
-	sum = sum + (sum>>16);
-	answer=(short)~sum;
-	
-	return(answer);
+    for (int i = 0; i < N; i++)
+    {
+        dst[i] = rand() % 26 + 'A';
+    }
+    dst[N-1] = '\0';
 }
 
-int main(int argc, char *argv[]) {
+/*The IPv4 layer generates an IP header when sending a packet unless the IP_HDRINCL socket option is enabled on the socket. 
+When it is enabled, the packet must contain an IP header.*/
+
+/* Function to find IP  */
+int hostname_to_ip(char *hostname, char *ip)
+{
+    struct hostent *he;
+    struct in_addr **addr_list;
+    if ((he = gethostbyname(hostname)) == NULL)
+    {
+        // get the host info
+        herror("gethostbyname");
+        return 1;
+    }
+
+    addr_list = (struct in_addr **)he->h_addr_list;
+    if (addr_list[0] == NULL)
+        return 1;
+    else
+    {
+        strcpy(ip, inet_ntoa(*addr_list[0]));
+        return 0;
+    }
+}
+/* Check sum function  */
+unsigned short csum(unsigned short *buf, int nwords)
+{
+    unsigned long sum;
+    for (sum = 0; nwords > 0; nwords--)
+        sum += *buf++;
+    sum = (sum >> 16) + (sum & 0xffff);
+    sum += (sum >> 16);
+    return (unsigned short)(~sum);
+}
+
+int main(int argc, char *argv[])
+{
     if(argc != 2)
     {
         printf("wrong format! Expected mytraceroute <destination domain name>\n");
         exit(EXIT_FAILURE);
     }
 
+    // Checking if the domain name is alright and obtaining ip address
     struct hostent* resp = gethostbyname(argv[1]);
     char dest_ip[32];
     // Error checking
     if(resp != NULL) {
-        int tot_ips= 0;
-        // currently taking the last ip
-        for(int i = 0; resp->h_addr_list[tot_ips] != NULL; i++, tot_ips++) {
-            memset(dest_ip, '\0', sizeof(dest_ip));
-            strcpy(dest_ip, inet_ntoa(*((struct in_addr *)resp->h_addr_list[i])));
-        }
+        // currently taking the first ip
+        memset(dest_ip, '\0', sizeof(dest_ip));
+        strcpy(dest_ip, inet_ntoa(*((struct in_addr *)resp->h_addr_list[0])));
     } else {
         printf("Invalid domain name!\n");
         exit(EXIT_FAILURE);
     }
+    
 
-    int sockfd1 = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    int sockfd1 = socket(AF_INET, SOCK_RAW, IPPROTO_UDP);
 	if(sockfd1 < 0) {
 		perror("Error in socket()");
 	}
-    int sockfd2 = socket(AF_INET, SOCK_RAW, IPPROTO_RAW);
+    int sockfd2 = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 	if(sockfd2 < 0) {
 		perror("Error in socket()");
 	}
 
-    int one = 1;
-    const int *val = &one;
+    struct sockaddr_in saddr_raw1, saddr_raw2, cli_addr;
 
-    if (setsockopt (sockfd1, IPPROTO_IP, IP_HDRINCL, val, sizeof (one)) < 0)
+    saddr_raw1.sin_family = AF_INET;
+    saddr_raw1.sin_port = htons(SRC_PORT);
+    saddr_raw1.sin_addr.s_addr = INADDR_ANY; // inet_addr("127.0.0.1"); //inet_addr(LISTEN_IP);
+    socklen_t saddr_raw_len = sizeof(saddr_raw1);
+
+    saddr_raw2.sin_family = AF_INET;
+    saddr_raw2.sin_port = htons(SRC_PORT);
+    saddr_raw2.sin_addr.s_addr = INADDR_ANY; // inet_addr("127.0.0.1"); //inet_addr(LISTEN_IP);
+
+    /* 3. Bind the Sockets */
+    if (bind(sockfd1, (struct sockaddr *)&saddr_raw1, saddr_raw_len) < 0)
     {
-        printf ("Error setting IP_HDRINCL. Error number : %d . Error message : %s \n" , errno , strerror(errno));
-        exit(0);
+        perror("raw bind");
+        close(sockfd1);
+        close(sockfd2);
+        exit(1);
     }
 
-	//Datagram to represent the packet
-	char datagram[4096] , source_ip[32] , *data , *pseudogram;
-	
-	//zero out the packet buffer
-	memset(datagram, 0, 4096);
-	
-	//IP header
-	struct iphdr *iph = (struct iphdr *) datagram;
-	
-	//UDP header
-	struct udphdr *udph = (struct udphdr *) (datagram + sizeof (struct iphdr));
-	
-	struct sockaddr_in dest;
-	struct pseudo_header psh;
-	
-	//Data part
-	data = datagram + sizeof(struct iphdr) + sizeof(struct udphdr);
-	strcpy(data, "ABCDEFGHIJKLMNOPQRSTUVWXYZABCDEFGHIJKLMNOPQRSTUVWXYZ");
-	
-	//some address resolution
-	strcpy(source_ip , "127.0.0.1");
-	
-	dest.sin_family = AF_INET;
-	dest.sin_port = htons(DEST_PORT);
-	dest.sin_addr.s_addr = inet_addr(dest_ip);
-	
-	//Fill in the IP Header
-	iph->ihl = 5;
-	iph->version = 4;
-	iph->tos = 0;
-	iph->tot_len = sizeof (struct iphdr) + sizeof (struct udphdr) + strlen(data);
-	iph->id = htonl (54321);	//Id of this packet
-	iph->frag_off = 0;
-	iph->ttl = 255; // ttl
-	iph->protocol = IPPROTO_UDP;
-	iph->check = 0;		//Set to 0 before calculating checksum
-	iph->saddr = inet_addr (source_ip);	//Spoof the source ip address
-	iph->daddr = dest.sin_addr.s_addr;
-	
-	//Ip checksum
-	iph->check = csum ((unsigned short *) datagram, iph->tot_len);
-    /* UDP header as specified by RFC 768, August 1980. 
-#ifdef __FAVOR_BSD
+    if (bind(sockfd2, (struct sockaddr *)&saddr_raw2, saddr_raw_len) < 0)
+    {
+        perror("raw bind");
+        close(sockfd1);
+        close(sockfd2);
+        exit(1);
+    }
 
-    struct udphdr {
-        u_int16_t uh_sport;  /* source port 
-        u_int16_t uh_dport;  /* destination port 
-        u_int16_t uh_ulen;   /* udp length 
-        u_int16_t uh_sum;    /* udp checksum 
-    };
+    printf("mytraceroute to %s (%s), %d hops max, %d byte packets\n", argv[1], dest_ip, MAX_HOP, N);
 
-#else
+    cli_addr.sin_family = AF_INET;
+    cli_addr.sin_port = htons(DEST_PORT);
+    cli_addr.sin_addr.s_addr = inet_addr(dest_ip);
 
-    struct udphdr {
-        u_int16_t source;
-        u_int16_t dest;
-        u_int16_t len;
-        u_int16_t check;
-    };
+    int one = 1;
+    const int *val = &one;
+    // We will include the ip header ourselves
+    if (setsockopt(sockfd1, IPPROTO_IP, IP_HDRINCL, val, sizeof(one)) < 0)
+    {
+        fprintf(stderr, "Error: setsockopt. You need to run this program as root\n");
+        close(sockfd1);
+        close(sockfd2);
+        exit(1);
+    }
 
-#endif
-    */
+    unsigned char ttl = 1;
+    fd_set myfd;
+    char payload[52];
+    clock_t start_time;
+    struct timeval tv, prev_tv;
+    int repeats = 0;
+    // int timed_out = 0;
+    int state = SEND_MSG;
 
-	//UDP header
-	udph->source = htons (SRC_PORT);
-	udph->dest = htons (DEST_PORT);
-	udph->len = htons(8 + strlen(data));	//udp header size
-	udph->check = 0;	//leave checksum 0 now, filled later by pseudo header
-	
-	//Now the UDP checksum using the pseudo header
-	psh.source_address = inet_addr(source_ip);
-	psh.dest_address = dest.sin_addr.s_addr;
-	psh.placeholder = 0;
-	psh.protocol = IPPROTO_UDP;
-	psh.udp_length = htons(sizeof(struct udphdr) + strlen(data));
-	
-	int psize = sizeof(struct pseudo_header) + sizeof(struct udphdr) + strlen(data);
-	pseudogram = malloc(psize);
-	
-	memcpy(pseudogram , (char*) &psh , sizeof (struct pseudo_header));
-	memcpy(pseudogram + sizeof(struct pseudo_header) , udph , sizeof(struct udphdr) + strlen(data));
-	
-	udph->check = csum((unsigned short*) pseudogram , psize);
-	
-	//loop if you want to flood :)
-	//while (1)
-	{
-		//Send the packet
-		if (sendto (sockfd1, datagram, iph->tot_len , 0, (struct sockaddr *) &dest, sizeof (dest)) < 0)
-		{
-			perror("sendto failed");
-		}
-		//Data send successfully
-		else
-		{
-			printf ("Packet Send. Length : %d \n" , iph->tot_len);
-		}
-	}
-    int ttl = 1;
+    while (state != END_TRACE) {
 
+        if(state == SEND_MSG) {
+            char buffer[PCKT_LEN];
+            struct iphdr *ip = (struct iphdr *)buffer;
+            struct udphdr *udp = (struct udphdr *)(buffer + sizeof(struct iphdr));
+
+            /* 4. generate Payload */
+            gen(payload);
+            bzero(buffer, sizeof(buffer));
+
+            /* 5. Generate UPD and IP header */
+            ip->ihl = 5;
+            ip->version = 4;
+            ip->tos = 0; // low delay
+            ip->tot_len = sizeof(struct iphdr) + sizeof(struct udphdr) + N; //https://tools.ietf.org/html/rfc791#page-11
+            ip->id = htons(12219);
+            ip->ttl = ttl;     // hops
+            ip->protocol = 17; // UDP
+            ip->saddr = 0;     //src_addr;
+            ip->daddr = inet_addr(dest_ip);
+
+            // fabricate the UDP header
+            udp->source = htons(SRC_PORT);
+            // destination port number
+            udp->dest = htons(DEST_PORT);
+            udp->len = htons(sizeof(struct udphdr)+N);
+
+            // calculate the checksum for integrity
+            ip->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + sizeof(struct udphdr));
+
+            /* 6. Send the packet */
+            fprintf(stderr, "I'm sending the message!\n");
+            strcpy(buffer + sizeof(struct iphdr) + sizeof(struct udphdr), payload);
+            if (sendto(sockfd1, buffer, ip->tot_len, 0, (struct sockaddr *)&cli_addr, sizeof(cli_addr)) < 0) {
+                perror("sendto()");
+                close(sockfd1);
+                close(sockfd2);
+                exit(1);
+            }
+            // printf("packet Send %d\n", ttl);
+            start_time = clock();
+
+            prev_tv.tv_sec = 1;
+            prev_tv.tv_usec = 0;
+
+            state = WAIT_MSG;
+
+        } else if(state == WAIT_MSG) {
+            /* 7. Wait on select call */
+            FD_ZERO(&myfd);
+            FD_SET(sockfd2, &myfd);
+
+            tv.tv_sec = prev_tv.tv_sec;
+            tv.tv_usec = prev_tv.tv_usec;
+
+            int ret = select(sockfd2 + 1, &myfd, 0, 0, &tv);
+
+            if (ret < 0) {
+                // Errors -- terminate
+                perror("select()\n");
+                close(sockfd1);
+                close(sockfd2);
+                exit(1);
+            } else if(ret == 0) {
+                // Select timed out
+                fprintf(stderr, "Select timed out!\n");
+                if(repeats == 3) {
+                    // sent 3 times already
+                    printf("\n");
+                    ttl++;
+                    repeats = 0;
+                } else {
+                    if(repeats == 0)
+                        printf("%d", ttl);
+                    printf("\t*");
+                    repeats++;
+                }
+
+                state = SEND_MSG;
+            }
+            else {
+                // Received a message
+                fprintf(stderr, "Received a message\n");
+                if (FD_ISSET(sockfd2, &myfd)) {
+                    /* 8. Read the ICMP Message */
+                    fprintf(stderr, "Beep boop! Something in sockfd2\n");
+                    char msg[MSG_SIZE];
+                    int msglen;
+                    socklen_t raddr_len = sizeof(saddr_raw1);
+                    msglen = recvfrom(sockfd2, msg, MSG_SIZE, 0, (struct sockaddr *)&saddr_raw2, &raddr_len);
+                    clock_t end_time = clock();
+                    fprintf(stderr, "ICMP RECV FROM %s\n", inet_ntoa(saddr_raw2.sin_addr));
+                    // Continue with select {empty packet}
+                    if (msglen <= 0) {
+                        fprintf(stderr, "BLANK :(\n");
+                        prev_tv.tv_sec = tv.tv_sec;
+                        prev_tv.tv_usec = tv.tv_usec;
+                        continue;
+                    }
+
+                    // Extract ip header
+                    struct iphdr hdrip = *((struct iphdr *)msg);
+                    int iphdrlen = sizeof(hdrip);
+
+                    // Extract icmp header
+                    struct icmphdr hdricmp = *((struct icmphdr *)(msg + iphdrlen));
+
+                    /* 9. Handle Different Case */
+                    // read the destination IP
+                    struct in_addr saddr_ip;
+                    saddr_ip.s_addr = hdrip.saddr;
+
+                    // sanity check
+                    if (hdrip.protocol == 1) {
+                        fprintf(stderr, "ICMP received\n");
+                        if (hdricmp.type == 3) {
+                            //  ensure we've reached destination
+                            fprintf(stderr, "Destination unreachable\n");
+                            if (hdrip.saddr == inet_addr(dest_ip)) {
+                                fprintf(stderr, "Yayyy!! Done!!\n");
+                                printf("%d\t%s\t%.3f ms\n", ttl, inet_ntoa(saddr_ip), (float)(end_time - start_time) / CLOCKS_PER_SEC * 1000);
+                                close(sockfd1);
+                                close(sockfd2);
+                                return 0;
+                            } else {
+                                // Just continue waiting with the remaining time
+                                fprintf(stderr, "Not my destination! But how did i reach here!!\n");
+                                prev_tv.tv_sec = tv.tv_sec;
+                                prev_tv.tv_usec = tv.tv_usec;
+                            }
+
+                        }
+                        else if (hdricmp.type == 11) {
+                            //time exceed
+                            fprintf(stderr, "I need more hops!!\n");
+                            printf("%d\t%s\t%.3f ms\n", ttl, inet_ntoa(saddr_ip), (float)(end_time - start_time) / CLOCKS_PER_SEC * 1000);
+                            ttl++;
+                            repeats = 0;
+                            prev_tv.tv_sec = 1;
+                            prev_tv.tv_usec = 0;
+                            state = SEND_MSG;
+                        } else {
+                            fprintf(stderr, "Not my packet\n");
+                            // drop and wait with remaining time
+                            prev_tv.tv_sec = tv.tv_sec;
+                            prev_tv.tv_usec = tv.tv_usec;
+                        }
+                    }
+                    else {
+                        // Just continue waiting with the remaining time
+                        fprintf(stderr, "Not ICMP\n");
+                        prev_tv.tv_sec = tv.tv_sec;
+                        prev_tv.tv_usec = tv.tv_usec;
+                    }
+                }
+            }
+        }
+        
+        if(ttl >= MAX_TTL)
+            state = END_TRACE;
+    }
+
+    close(sockfd1);
+    close(sockfd2);
     return 0;
 }

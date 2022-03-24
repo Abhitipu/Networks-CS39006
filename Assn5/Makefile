@@ -1,22 +1,6 @@
-run: tracer
-	./tracer localhost
-
-compile: mytraceroute_19CS10069_19CS30007.c
-	sudo su
+run: mytraceroute_19CS10069_19CS30007.c
 	cc -o tracer mytraceroute_19CS10069_19CS30007.c
-
-client: my_udpclient.c
-	cc -o client my_udpclient.c
-	./client
-
-ref: ref.c
-	cc -o ref ref.c
-	sudo ./ref www.iitkgp.ac.in
-
-ref_orig: ref_orig.c
-	cc -o ref_orig ref_orig.c
-	sudo ./ref_orig www.google.com
+	sudo ./tracer cse.iitkgp.ac.in 2> error.log
 
 clean:
-	rm -f client tracer ref ref_orig
-	exit
+	rm -f tracer
