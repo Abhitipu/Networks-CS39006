@@ -68,10 +68,15 @@ int hostname_to_ip(char *hostname, char *ip)
 unsigned short csum(unsigned short *buf, int nwords)
 {
     unsigned long sum;
-    for (sum = 0; nwords > 0; nwords--)
+    for (sum = 0; nwords > 0; nwords--) {
         sum += *buf++;
-    sum = (sum >> 16) + (sum & 0xffff);
-    sum += (sum >> 16);
+        while((sum >> 16) != 0) {
+            unsigned short temp = sum&(0xffff);
+            unsigned short temp2 = sum >> 16;
+            sum = temp + temp2;
+        }
+    }
+
     return (unsigned short)(~sum);
 }
 
@@ -172,36 +177,40 @@ int main(int argc, char *argv[])
             bzero(buffer, sizeof(buffer));
 
             /* 5. Generate UPD and IP header */
-            ip->ihl = 5;
-            ip->version = 4;
-            ip->tos = 0; // low delay
-            ip->tot_len = sizeof(struct iphdr) + sizeof(struct udphdr) + N; //https://tools.ietf.org/html/rfc791#page-11
+            ip->version = 4; // 0100
+            ip->ihl = 5; // 5*4 = 20 bits header length
+            ip->tos = 0; // type of serveice: normal
+            ip->tot_len = htons(sizeof(struct iphdr) + sizeof(struct udphdr) + N); //https://tools.ietf.org/html/rfc791#page-11
             ip->id = htons(12219);
-            ip->ttl = ttl;     // hops
-            ip->protocol = 17; // UDP
-            ip->saddr = 0;     //src_addr;
-            ip->daddr = inet_addr(dest_ip);
+            ip->ttl = ttl;     // number of hops
+            ip->protocol = IPPROTO_UDP; // UDP 17
+            inet_pton (AF_INET, "0.0.0.0", &(ip->saddr));
+            inet_pton (AF_INET, dest_ip, &(ip->daddr));
 
+            // inet_pton (AF_INET, "127.0.0.1", &(ip->saddr));
+            // ip->saddr = 0;     //src_addr;
+            // ip->daddr = inet_addr(dest_ip); // network byte order
+            // calculate the checksum for integrity
+            ip->check = csum((unsigned short *)buffer, sizeof(struct iphdr) >> 1);
+            
             // fabricate the UDP header
             udp->source = htons(SRC_PORT);
             // destination port number
             udp->dest = htons(DEST_PORT);
             udp->len = htons(sizeof(struct udphdr)+N);
-
-            // calculate the checksum for integrity
-            ip->check = csum((unsigned short *)buffer, sizeof(struct iphdr) + sizeof(struct udphdr));
+            udp->check = 0;
 
             /* 6. Send the packet */
             fprintf(stderr, "I'm sending the message!\n");
             strcpy(buffer + sizeof(struct iphdr) + sizeof(struct udphdr), payload);
-            if (sendto(sockfd1, buffer, ip->tot_len, 0, (struct sockaddr *)&cli_addr, sizeof(cli_addr)) < 0) {
+            if (sendto(sockfd1, buffer, ntohs(ip->tot_len), 0, (struct sockaddr *)&cli_addr, sizeof(cli_addr)) < 0) {
                 perror("sendto()");
                 close(sockfd1);
                 close(sockfd2);
                 exit(1);
             }
             // printf("packet Send %d\n", ttl);
-            start_time = clock();
+            start_time = time(NULL);
 
             prev_tv.tv_sec = 1;
             prev_tv.tv_usec = 0;
@@ -251,7 +260,7 @@ int main(int argc, char *argv[])
                     int msglen;
                     socklen_t raddr_len = sizeof(saddr_raw1);
                     msglen = recvfrom(sockfd2, msg, MSG_SIZE, 0, (struct sockaddr *)&saddr_raw2, &raddr_len);
-                    clock_t end_time = clock();
+                    clock_t end_time = time(NULL);
                     fprintf(stderr, "ICMP RECV FROM %s\n", inet_ntoa(saddr_raw2.sin_addr));
                     // Continue with select {empty packet}
                     if (msglen <= 0) {
@@ -268,7 +277,6 @@ int main(int argc, char *argv[])
                     // Extract icmp header
                     struct icmphdr hdricmp = *((struct icmphdr *)(msg + iphdrlen));
 
-                    /* 9. Handle Different Case */
                     // read the destination IP
                     struct in_addr saddr_ip;
                     saddr_ip.s_addr = hdrip.saddr;
