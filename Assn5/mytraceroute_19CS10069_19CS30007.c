@@ -162,7 +162,7 @@ int main(int argc, char *argv[])
             udp->len = htons(sizeof(struct udphdr)+UDP_PAYLOAD);
             udp->check = 0;
 
-            fprintf(stderr, "I'm sending the message!\n");
+            // fprintf(stderr, "I'm sending the message!\n");
             strcpy(buffer + sizeof(struct iphdr) + sizeof(struct udphdr), payload);
             clock_gettime(CLOCK_REALTIME, &startTime);
             if (sendto(sockfd1, buffer, ntohs(ip->tot_len), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) < 0) {
@@ -195,7 +195,7 @@ int main(int argc, char *argv[])
                 exit(1);
             } else if(ret == 0) {
                 // Select timed out
-                fprintf(stderr, "Select timed out!\n");
+                // fprintf(stderr, "Select timed out!\n");
                 if(repeats == 3) {
                     // sent 3 times already
                     printf("\n");
@@ -212,9 +212,9 @@ int main(int argc, char *argv[])
             }
             else {
                 // Received a message
-                fprintf(stderr, "Received a message\n");
+                // fprintf(stderr, "Received a message\n");
                 if (FD_ISSET(sockfd2, &myfd)) {
-                    fprintf(stderr, "Beep boop! Something in sockfd2\n");
+                    // fprintf(stderr, "Beep boop! Something in sockfd2\n");
 
                     char msg[MSG_LEN];
                     int msglen;
@@ -222,7 +222,7 @@ int main(int argc, char *argv[])
                     msglen = recvfrom(sockfd2, msg, MSG_LEN, 0, (struct sockaddr *)&saddr_raw2, &raddr_len);
                     clock_gettime(CLOCK_REALTIME, &endTime);
 
-                    fprintf(stderr, "ICMP RECV FROM %s\n", inet_ntoa(saddr_raw2.sin_addr));
+                    // fprintf(stderr, "ICMP RECV FROM %s\n", inet_ntoa(saddr_raw2.sin_addr));
 
                     // Extract ip header
                     struct iphdr hdrip = *((struct iphdr *)msg);
@@ -237,19 +237,21 @@ int main(int argc, char *argv[])
 
                     // sanity check
                     if (hdrip.protocol == 1) {
-                        fprintf(stderr, "ICMP received\n");
+                        // fprintf(stderr, "ICMP received\n");
                         if (hdricmp.type == 3) {
                             //  ensure we've reached destination
-                            fprintf(stderr, "Destination unreachable\n");
+                            // fprintf(stderr, "Destination unreachable\n");
                             if (hdrip.saddr == inet_addr(dest_ip)) {
-                                fprintf(stderr, "Yayyy!! Done!!\n");
+                                // fprintf(stderr, "Yayyy!! Done!!\n");
                                 printf("%d\t%s\t%.3f ms\n", ttl, inet_ntoa(saddr_ip), ((endTime.tv_sec- startTime.tv_sec)*((int)1e9) + (endTime.tv_nsec- startTime.tv_nsec))/(1000000.0));
                                 close(sockfd1);
                                 close(sockfd2);
                                 return 0;
+
+
                             } else {
                                 // Just continue waiting with the remaining time
-                                fprintf(stderr, "Not my destination! But how did i reach here!!\n");
+                                // fprintf(stderr, "Not my destination! But how did i reach here!!\n");
                                 prev_tv.tv_sec = tv.tv_sec;
                                 prev_tv.tv_usec = tv.tv_usec;
                             }
@@ -257,7 +259,7 @@ int main(int argc, char *argv[])
                         }
                         else if (hdricmp.type == 11) {
                             //time exceed
-                            fprintf(stderr, "I need more hops!!\n");
+                            // fprintf(stderr, "I need more hops!!\n");
                             printf("%d\t%s\t%.3f ms\n", ttl, inet_ntoa(saddr_ip), ((endTime.tv_sec- startTime.tv_sec)*((int)1e9) + (endTime.tv_nsec- startTime.tv_nsec))/(1000000.0));
                             ttl++;
                             repeats = 0;
@@ -265,7 +267,7 @@ int main(int argc, char *argv[])
                             prev_tv.tv_usec = 0;
                             state = SEND_MSG;
                         } else {
-                            fprintf(stderr, "Not my packet\n");
+                            // fprintf(stderr, "Not my packet\n");
                             // drop and wait with remaining time
                             prev_tv.tv_sec = tv.tv_sec;
                             prev_tv.tv_usec = tv.tv_usec;
@@ -273,7 +275,7 @@ int main(int argc, char *argv[])
                     }
                     else {
                         // Just continue waiting with the remaining time
-                        fprintf(stderr, "Not ICMP\n");
+                        // fprintf(stderr, "Not ICMP\n");
                         prev_tv.tv_sec = tv.tv_sec;
                         prev_tv.tv_usec = tv.tv_usec;
                     }
