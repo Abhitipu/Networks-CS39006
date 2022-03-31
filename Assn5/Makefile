@@ -7,4 +7,4 @@ play: play.c
 	./play
 	
 clean:
-	rm -f tracer
+	rm -f tracer play ref
