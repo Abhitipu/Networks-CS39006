@@ -123,7 +123,7 @@ int main(int argc, char *argv[])
     unsigned char ttl = 1;
     fd_set myfd;
     char payload[UDP_PAYLOAD];
-    clock_t start_time;
+    struct timespec startTime, endTime;
     struct timeval tv, prev_tv;
     int repeats = 0;
     
@@ -164,7 +164,6 @@ int main(int argc, char *argv[])
 
             fprintf(stderr, "I'm sending the message!\n");
             strcpy(buffer + sizeof(struct iphdr) + sizeof(struct udphdr), payload);
-            struct timespec startTime;
             clock_gettime(CLOCK_REALTIME, &startTime);
             if (sendto(sockfd1, buffer, ntohs(ip->tot_len), 0, (struct sockaddr *)&dest_addr, sizeof(dest_addr)) < 0) {
                 perror("sendto()");
@@ -173,7 +172,6 @@ int main(int argc, char *argv[])
                 exit(1);
             }
             // printf("packet Send %d\n", ttl);
-            start_time = time(NULL);
 
             prev_tv.tv_sec = 1;
             prev_tv.tv_usec = 0;
@@ -222,7 +220,6 @@ int main(int argc, char *argv[])
                     int msglen;
                     socklen_t raddr_len = sizeof(saddr_raw1);
                     msglen = recvfrom(sockfd2, msg, MSG_LEN, 0, (struct sockaddr *)&saddr_raw2, &raddr_len);
-                    struct timespec endTime;
                     clock_gettime(CLOCK_REALTIME, &endTime);
 
                     fprintf(stderr, "ICMP RECV FROM %s\n", inet_ntoa(saddr_raw2.sin_addr));
@@ -246,7 +243,7 @@ int main(int argc, char *argv[])
                             fprintf(stderr, "Destination unreachable\n");
                             if (hdrip.saddr == inet_addr(dest_ip)) {
                                 fprintf(stderr, "Yayyy!! Done!!\n");
-                                printf("%d\t%s\t%.3f ms\n", ttl, inet_ntoa(saddr_ip), (float)(end_time - start_time) / CLOCKS_PER_SEC * 1000);
+                                printf("%d\t%s\t%.3f ms\n", ttl, inet_ntoa(saddr_ip), ((endTime.tv_sec- startTime.tv_sec)*((int)1e9) + (endTime.tv_nsec- startTime.tv_nsec))/(1000000.0));
                                 close(sockfd1);
                                 close(sockfd2);
                                 return 0;
